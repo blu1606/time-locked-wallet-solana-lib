@@ -18,7 +18,7 @@ pub struct TimeLockAccount {
 }
 
 // Enum to define the type of asset being locked. 
-#[dereive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
 pub enum AssetType {
     Sol, 
     Token,
