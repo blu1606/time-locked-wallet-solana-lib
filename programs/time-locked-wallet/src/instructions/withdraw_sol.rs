@@ -58,7 +58,7 @@ pub fn withdraw_sol(ctx: Context<WithdrawSol>) -> Result<()> {
 
     let signer = &[&time_lock_seeds[..]];
     // invoke transfer, signed by PDA
-    solana_program::program::invoke_signed(
+    anchor_lang::solana_program::program::invoke_signed(
         &ix,
         &[
             ctx.accounts.time_lock_account.to_account_info(),

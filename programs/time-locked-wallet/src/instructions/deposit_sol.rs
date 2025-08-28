@@ -8,12 +8,12 @@ use anchor_lang::solana_program::system_instruction;
 #[derive(Accounts)]
 #[instruction(amount: u64)]
 pub struct DepositSol<'info> {
-    #[account(
+        #[account(
         mut,
         seeds = [b"time_lock", initializer.key().as_ref(), &time_lock_account.unlock_timestamp.to_le_bytes()],
         bump = time_lock_account.bump,
-        constraint = time_lock_account.asset_type == AssetType::Sol @TimeLockError::InvalidAssetType,
-        constraint = initializer.key() == time_lock_account.owner @TimeLockError::InvalidAssetType
+        constraint = time_lock_account.owner == initializer.key() @ TimeLockError::InvalidAssetType,
+        constraint = time_lock_account.asset_type == AssetType::Sol @ TimeLockError::InvalidAssetType
     )]
 
     pub time_lock_account: Account<'info, TimeLockAccount>,
@@ -36,7 +36,7 @@ pub fn deposit_sol(ctx: Context<DepositSol>, amount: u64) -> Result<()> {
     );
 
     // transfer 
-    solana_program::program::invoke(
+    anchor_lang::solana_program::program::invoke(
         &ix,
         &[
             ctx.accounts.initializer.to_account_info(),

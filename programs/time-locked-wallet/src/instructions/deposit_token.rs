@@ -5,12 +5,12 @@ use anchor_spl::token::{Token, TokenAccount, Transfer};
 #[derive(Accounts)]
 #[instruction(amount: u64)]
 pub struct DepositToken<'info> {
-    #[account(
+        #[account(
         mut,
         seeds = [b"time_lock", initializer.key().as_ref(), &time_lock_account.unlock_timestamp.to_le_bytes()],
         bump = time_lock_account.bump,
-        constraint = time_lock_account.asset_type == AssetType::Token @TimeLockError::InvalidAssetType,
-        constraint = initializer.key() == time_lock_account.owner @TimeLockError::InvalidAssetType
+        constraint = time_lock_account.owner == initializer.key() @ TimeLockError::InvalidAssetType,
+        constraint = time_lock_account.asset_type == AssetType::Token @ TimeLockError::InvalidAssetType
     )]
 
     pub time_lock_account: Account<'info, TimeLockAccount>,

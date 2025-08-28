@@ -4,6 +4,10 @@ members = [
 ]
 resolver = "2"
 
+[workspace.dependencies]
+anchor-lang = { version = "0.31.1", default-features = false, features = ["derive"] }
+anchor-spl = { version = "0.31.1", default-features = false, features = ["token", "associated_token"] }
+
 [profile.release]
 overflow-checks = true
 lto = "fat"
@@ -16,7 +20,7 @@ codegen-units = 1
 
 [profile.dev]
 opt-level = 0
-debug = true
+debug = 1
 incremental = true
 codegen-units = 256
 

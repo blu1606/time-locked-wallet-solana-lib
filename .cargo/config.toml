@@ -1,0 +1,24 @@
+[build]
+# Default build settings
+
+# Optimize for faster builds in dev mode
+[profile.dev]
+# Reduce debug info to speed up builds
+debug = 1
+# Use faster but less optimized codegen
+opt-level = 0
+# Increase parallelism
+codegen-units = 256
+
+[profile.release]
+# Enable fat LTO for smaller binaries
+lto = "fat"
+# Single codegen unit for best optimization
+codegen-units = 1
+
+# Use cargo-zigbuild for faster cross-compilation if available
+[target.sbf-solana-solana]
+rustflags = [
+    "-C", "force-frame-pointers=no",
+    "-C", "overflow-checks=on"
+]
