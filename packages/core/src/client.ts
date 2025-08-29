@@ -1,5 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import { IDL, TimeLockWallet } from "./idl/types";
 import { 
     AssetType,
     CreateTimeLockParams, 
@@ -26,7 +27,7 @@ import { TimeLockInstructions } from "./instructions";
 export class TimeLockClient {
     private connection: Connection;
     private wallet: anchor.Wallet;
-    private program: anchor.Program;
+    private program: anchor.Program<any>;
     private instructions: TimeLockInstructions;
 
     constructor(connection: Connection, wallet: anchor.Wallet, programId?: PublicKey) {
@@ -40,60 +41,8 @@ export class TimeLockClient {
         // Use provided program ID or default
         const actualProgramId = programId || PROGRAM_ID;
         
-        // Initialize program - in production, import actual IDL
-        try {
-            // Try to use workspace program first (if available)
-            this.program = (anchor.workspace as any).TimeLockWallet;
-            if (!this.program) {
-                throw new Error("Workspace program not found");
-            }
-        } catch {
-            // Fallback: Initialize with minimal IDL structure
-            // In production: replace with `import idl from './idl/time_locked_wallet.json'`
-            const idl = {
-                version: "0.1.0",
-                name: "time_locked_wallet",
-                address: actualProgramId.toBase58(),
-                instructions: [
-                    {
-                        name: "initialize",
-                        accounts: [],
-                        args: []
-                    },
-                    {
-                        name: "depositSol", 
-                        accounts: [],
-                        args: []
-                    },
-                    {
-                        name: "withdrawSol",
-                        accounts: [],
-                        args: []
-                    },
-                    {
-                        name: "depositToken",
-                        accounts: [],
-                        args: []
-                    },
-                    {
-                        name: "withdrawToken",
-                        accounts: [],
-                        args: []
-                    }
-                ],
-                accounts: [
-                    {
-                        name: "timeLockAccount",
-                        type: {
-                            kind: "struct",
-                            fields: []
-                        }
-                    }
-                ]
-            } as unknown as anchor.Idl;
-            
-            this.program = new anchor.Program(idl, provider);
-        }
+        // Initialize program with real IDL
+        this.program = new anchor.Program(IDL, provider);
         
         // Initialize instruction helper
         this.instructions = new TimeLockInstructions(this.program);
