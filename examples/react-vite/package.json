@@ -8,11 +8,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "@solana/web3.js": "^1.95.0",
     "@coral-xyz/anchor": "^0.29.0",
-    "@time-locked-wallet/core": "file:../../packages/core"
+    "@solana/web3.js": "^1.95.0",
+    "@time-locked-wallet/core": "file:../../packages/core",
+    "buffer": "^6.0.3",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.0.0",

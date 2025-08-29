@@ -2,8 +2,16 @@
   "name": "@time-locked-wallet/core",
   "version": "1.0.0",
   "description": "Core library for Time-Locked Wallet Solana program",
+  "type": "module",
   "main": "dist/index.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",

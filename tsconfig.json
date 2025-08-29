@@ -2,9 +2,13 @@
   "compilerOptions": {
     "types": ["mocha", "chai"],
     "typeRoots": ["./node_modules/@types"],
-    "lib": ["es2015"],
-    "module": "commonjs",
+    "lib": ["dom", "es2019"],
+    "module": "ESNext",
+    "moduleResolution": "node",
     "target": "es6",
-    "esModuleInterop": true
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true
   }
 }

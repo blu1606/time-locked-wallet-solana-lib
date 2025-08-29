@@ -1,5 +1,11 @@
 /** @jsxImportSource react */
 import React, { useState, useEffect } from 'react';
+// Buffer polyfill for browser (required by @solana/web3.js PublicKey internals)
+import { Buffer } from 'buffer';
+if (typeof (window as any).Buffer === 'undefined') {
+  // @ts-ignore
+  window.Buffer = Buffer;
+}
 import { Connection, clusterApiUrl, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { TimeLockClient, AssetType } from '@time-locked-wallet/core';
 import * as anchor from '@coral-xyz/anchor';
@@ -16,8 +22,11 @@ interface LockData {
   lockAddress: string;
 }
 
+// RPC URL (read from Vite env, fallback to devnet)
+const rpcUrl = (import.meta as any).env?.VITE_SOLANA_RPC_URL || clusterApiUrl('devnet');
+
 // Connection và client setup
-const connection = new Connection(clusterApiUrl('devnet'));
+const connection = new Connection(rpcUrl);
 
 // TimeLock context
 const TimeLockContext = React.createContext<{
@@ -50,13 +59,29 @@ const useWallet = () => {
       setWallet(walletInfo);
 
       // Initialize TimeLockClient
+      console.log('connect debug - response.publicKey:', response.publicKey);
+      console.log('connect debug - response.publicKey type:', typeof response.publicKey);
+      
+      // Ensure we have a proper PublicKey instance
+      const normalizedPublicKey = response.publicKey instanceof PublicKey 
+        ? response.publicKey 
+        : new PublicKey(response.publicKey.toString());
+      
       const anchorWallet = {
-        publicKey: response.publicKey,
+        publicKey: normalizedPublicKey,
         signTransaction: window.solana.signTransaction,
         signAllTransactions: window.solana.signAllTransactions,
+        payer: normalizedPublicKey, // Add payer property
       };
       
-      const timeLockClient = new TimeLockClient(connection, anchorWallet);
+      console.log('connect debug - anchorWallet.publicKey:', anchorWallet.publicKey);
+      console.log('connect debug - anchorWallet.publicKey._bn:', anchorWallet.publicKey._bn);
+      
+      const timeLockClient = new TimeLockClient(
+        connection,
+        anchorWallet,
+        new PublicKey('899SKikn1WiRBSurKhMZyNCNvYmWXVE6hZFYbFim293g')
+      );
       setClient(timeLockClient);
       
     } catch (error: any) {
@@ -73,7 +98,70 @@ const useWallet = () => {
         try {
           const response = await window.solana.connect({ onlyIfTrusted: true });
           if (response.publicKey) {
-            setWallet(response);
+            // normalize wallet shape
+            const walletInfo = { publicKey: response.publicKey };
+            setWallet(walletInfo);
+
+            // initialize client when already trusted
+            try {
+              console.log('checkConnection debug - response.publicKey:', response.publicKey);
+              console.log('checkConnection debug - response.publicKey type:', typeof response.publicKey);
+              console.log('checkConnection debug - response.publicKey instanceof PublicKey:', response.publicKey instanceof PublicKey);
+              
+              // Ensure we have a proper PublicKey instance
+              let normalizedPublicKey: PublicKey;
+              
+              if (response.publicKey instanceof PublicKey) {
+                normalizedPublicKey = response.publicKey;
+              } else {
+                // Try different ways to extract the public key
+                let publicKeyString: string;
+                
+                if (typeof response.publicKey === 'string') {
+                  publicKeyString = response.publicKey;
+                } else if (response.publicKey && typeof response.publicKey.toString === 'function') {
+                  publicKeyString = response.publicKey.toString();
+                } else if (response.publicKey && response.publicKey._bn) {
+                  // If it's a BN-like object, try to convert it to base58
+                  try {
+                    // If it has a toBase58 method, use it
+                    if (typeof response.publicKey.toBase58 === 'function') {
+                      publicKeyString = response.publicKey.toBase58();
+                    } else {
+                      // Try to create a PublicKey from the _bn property
+                      publicKeyString = new PublicKey(response.publicKey._bn).toString();
+                    }
+                  } catch (bnError) {
+                    console.error('Failed to convert _bn to PublicKey:', bnError);
+                    throw new Error('Invalid PublicKey format from wallet');
+                  }
+                } else {
+                  throw new Error('Unable to extract PublicKey from wallet response');
+                }
+                
+                normalizedPublicKey = new PublicKey(publicKeyString);
+              }
+              
+              const anchorWallet = {
+                publicKey: normalizedPublicKey,
+                signTransaction: window.solana.signTransaction,
+                signAllTransactions: window.solana.signAllTransactions,
+                payer: normalizedPublicKey,
+              };
+              
+              console.log('checkConnection debug - anchorWallet.publicKey:', anchorWallet.publicKey);
+              console.log('checkConnection debug - anchorWallet.publicKey._bn:', anchorWallet.publicKey._bn);
+              
+              const timeLockClient = new TimeLockClient(
+                connection,
+                anchorWallet,
+                new PublicKey('899SKikn1WiRBSurKhMZyNCNvYmWXVE6hZFYbFim293g')
+              );
+              setClient(timeLockClient);
+            } catch (err) {
+              // non-fatal; client may be unavailable until explicit connect
+              console.warn('Could not initialize TimeLockClient on trusted connect', err);
+            }
           }
         } catch (error) {
           // Not connected yet
@@ -141,14 +229,32 @@ const CreateLockForm: React.FC<{
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Set default values
-    const today = new Date().toISOString().split('T')[0];
-    setUnlockDate(today);
-    
-    const oneHourLater = new Date();
-    oneHourLater.setHours(oneHourLater.getHours() + 1);
-    const timeString = oneHourLater.toTimeString().slice(0, 5);
-    setUnlockTime(timeString);
+    // Set default values: prefer authoritative chain time (use the existing devnet connection) + 30s, fallback to local time
+    const setDefaults = async () => {
+      try {
+        // Use the top-level `connection` which is already configured for devnet
+        const chainConn = connection;
+        const slot = await chainConn.getSlot();
+        const chainTime = await chainConn.getBlockTime(slot); // seconds
+        let baseMs = Date.now();
+        if (typeof chainTime === 'number') baseMs = chainTime * 1000;
+
+        const unlockMs = baseMs + 30 * 1000; // 30 seconds after chain time
+        const d = new Date(unlockMs);
+        setUnlockDate(d.toISOString().split('T')[0]);
+        setUnlockTime(d.toTimeString().slice(0, 5));
+        return;
+      } catch (err) {
+        // ignore and fall back to local time
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      setUnlockDate(today);
+      const thirtySecLater = new Date(Date.now() + 30 * 1000);
+      setUnlockTime(thirtySecLater.toTimeString().slice(0, 5));
+    };
+
+    setDefaults();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -163,6 +269,28 @@ const CreateLockForm: React.FC<{
     if (unlockDateTime <= new Date()) {
       setStatus('Unlock time must be in the future');
       return;
+    }
+
+    // Use chain time as authoritative check where possible (protect against local clock skew)
+    let finalUnlockTimestamp = Math.floor(unlockDateTime.getTime() / 1000);
+    try {
+      try {
+        const slot = await connection.getSlot();
+        const chainTime = await connection.getBlockTime(slot);
+        if (typeof chainTime === 'number' && finalUnlockTimestamp <= chainTime) {
+          // auto-bump to chainTime + 30s to avoid Anchor InvalidTimestamp
+          finalUnlockTimestamp = chainTime + 30;
+          const bumpedMs = finalUnlockTimestamp * 1000;
+          const d = new Date(bumpedMs);
+          setUnlockDate(d.toISOString().split('T')[0]);
+          setUnlockTime(d.toTimeString().slice(0, 5));
+          setStatus(`Unlock time was behind chain time; bumped to ${d.toLocaleString()}`);
+        }
+      } catch (chainErr) {
+        // ignore chain time check failures (network/endpoint may not support), fallback to local check above
+      }
+    } catch (tsErr) {
+      // ignore timestamp parsing errors - already validated above
     }
 
     // Check if user has enough balance
@@ -183,13 +311,45 @@ const CreateLockForm: React.FC<{
     try {
       setLoading(true);
       setStatus('Creating time-locked wallet with Solana program...');
-      
+
       // Use real TimeLockClient
-      const unlockTimestamp = Math.floor(unlockDateTime.getTime() / 1000);
+  const unlockTimestamp = finalUnlockTimestamp;
+      // --- DEBUG: inspect owner public key before calling client ---
+      console.log('create debug - wallet.publicKey raw:', wallet?.publicKey);
+      console.log('create debug - wallet.publicKey type:', typeof wallet?.publicKey);
+      try {
+        console.log('create debug - wallet.publicKey.toBase58():', wallet?.publicKey?.toBase58?.());
+      } catch (e) {
+        console.warn('create debug - could not toBase58 owner', e);
+      }
+
+      // Pre-validate owner PublicKey to provide clearer feedback
+      try {
+        const ownerPreview = new PublicKey(wallet!.publicKey);
+        console.log('create debug - owner PublicKey OK:', ownerPreview.toBase58());
+      } catch (e: any) {
+        console.error('create debug - invalid owner public key:', wallet?.publicKey, e);
+        setStatus('Invalid owner public key: ' + String(e));
+        setLoading(false);
+        return;
+      }
+
+      // Additional debug: log the exact params being passed to createSolTimeLock
+      const ownerPubkey = new PublicKey(wallet.publicKey.toBase58());
+      console.log('create debug - final owner param:', ownerPubkey);
+      console.log('create debug - final owner instanceof PublicKey:', ownerPubkey instanceof PublicKey);
+      console.log('create debug - final unlockTimestamp:', unlockTimestamp);
+      console.log('create debug - final amount:', parseFloat(amount) * LAMPORTS_PER_SOL);
+      console.log('create debug - final assetType:', AssetType.Sol);
+
       const result = await client.createSolTimeLock({
-        owner: wallet.publicKey,
+        // Normalize owner explicitly to a PublicKey built from base58 string to avoid
+        // adapter/object shape issues that can trigger invalid_public_key_input in the
+        // library's normalization routine.
+        owner: ownerPubkey,
         unlockTimestamp,
-        amount: parseFloat(amount) * LAMPORTS_PER_SOL // Convert to lamports
+        amount: parseFloat(amount) * LAMPORTS_PER_SOL, // Convert to lamports
+        assetType: AssetType.Sol
       });
       
       // Store successful result
@@ -207,11 +367,28 @@ const CreateLockForm: React.FC<{
       
     } catch (error: any) {
       console.error('Error creating lock:', error);
-      
-      // Handle specific Rust program errors
-      let errorMessage = 'Unknown error occurred';
-      
-      if (error.error?.errorCode?.code) {
+
+      // Handle specific Rust program errors and include logs when available
+      let errorMessage = error?.message || String(error) || 'Unknown error occurred';
+      try {
+        // SendTransactionError may expose getLogs()
+        if (typeof error.getLogs === 'function') {
+          const logs = await error.getLogs();
+          errorMessage += `\nLogs: ${JSON.stringify(logs)}`;
+        }
+      } catch (logErr) {
+        // ignore
+      }
+
+      // Map known Anchor error codes if present
+      if ((error?.message || '').startsWith('invalid_public_key_input')) {
+        const preview = (error.message || '').split(':')[1] || '<unknown>';
+        setStatus(`\u274c Error creating lock: Invalid public key input (${preview})`);
+        setLoading(false);
+        return;
+      }
+
+      if (error?.error?.errorCode?.code) {
         switch (error.error.errorCode.code) {
           case 6000:
             errorMessage = 'Withdrawal too early - unlock time not reached';
@@ -399,25 +576,100 @@ const WithdrawSection: React.FC<{
 }> = ({ lockAddress, wallet, client, onWithdraw }) => {
   const [status, setStatus] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [now, setNow] = useState<number>(Date.now());
+  const [onChainWithdrawable, setOnChainWithdrawable] = useState<boolean>(false);
 
   const lockDataStr = lockAddress ? localStorage.getItem(`lock_${lockAddress}`) : null;
   const lockData: LockData | null = lockDataStr ? JSON.parse(lockDataStr) : null;
-  const isUnlocked = lockData && Date.now() >= lockData.unlockTime;
+  const isUnlocked = lockData && now >= lockData.unlockTime;
   const isOwner = lockData && wallet && wallet.publicKey.toString() === lockData.owner;
-  const canWithdraw = isUnlocked && isOwner;
+  const canWithdrawLocal = !!(isUnlocked && isOwner);
+  const canWithdraw = canWithdrawLocal && onChainWithdrawable;
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Poll on-chain canWithdraw() every 10s (and whenever client/lockAddress changes)
+  useEffect(() => {
+    let mounted = true;
+    if (!client || !lockAddress) {
+      setOnChainWithdrawable(false);
+      return;
+    }
+
+    const check = async () => {
+      try {
+        const res = await client.canWithdraw(new PublicKey(lockAddress));
+        if (mounted) setOnChainWithdrawable(!!res);
+      } catch (err) {
+        if (mounted) setOnChainWithdrawable(false);
+      }
+    };
+
+    check();
+    const intv = setInterval(check, 10000);
+    return () => { mounted = false; clearInterval(intv); };
+  }, [client, lockAddress]);
 
   const handleWithdraw = async () => {
-    if (!canWithdraw || !client) return;
+    if (!canWithdrawLocal || !client) {
+      setStatus('Cannot withdraw yet — ensure you are owner and the lock is unlocked.');
+      return;
+    }
+
+    if (!onChainWithdrawable) {
+      setStatus('Waiting for on-chain unlock confirmation. Please try again shortly.');
+      return;
+    }
 
     try {
       setLoading(true);
       setStatus('Processing withdrawal with Solana program...');
       
-      // Use real TimeLockClient
+      // Double-check chain time to avoid Anchor InvalidTimestamp-like issues
+      try {
+        const slot = await client.connectionInstance.getSlot();
+        const chainTime = await client.connectionInstance.getBlockTime(slot);
+        if (typeof chainTime === 'number' && chainTime * 1000 < (lockData?.unlockTime || 0)) {
+          setStatus('⏳ Lock not yet unlocked on-chain (waiting for chain time). Please try again shortly.');
+          setLoading(false);
+          return;
+        }
+      } catch (chainErr) {
+        // ignore chain time check failures
+      }
+
+      // Use real TimeLockClient - normalize owner to PublicKey to avoid invalid key types
+      // --- DEBUG: log raw values before withdraw ---
+      console.log('withdraw debug - wallet.publicKey raw:', wallet?.publicKey);
+      console.log('withdraw debug - wallet.publicKey type:', typeof wallet?.publicKey);
+      try {
+        console.log('withdraw debug - wallet.publicKey.toBase58():', wallet?.publicKey?.toBase58?.());
+      } catch (e) {
+        console.warn('withdraw debug - could not toBase58 owner', e);
+      }
+      console.log('withdraw debug - lockAddress raw:', lockAddress);
+      try {
+        const previewPk = new PublicKey(lockAddress);
+        console.log('withdraw debug - lockAddress.toBase58():', previewPk.toBase58());
+      } catch (e) {
+        console.error('withdraw debug - invalid lockAddress before withdraw:', lockAddress, e);
+        setStatus('Invalid lock address: ' + String(e));
+        setLoading(false);
+        return;
+      }
+
+      // Construct PublicKey for owner and call withdraw
+  // Normalize owner as explicit PublicKey (use base58 roundtrip to avoid adapter shapes)
+  const ownerKey = new PublicKey(wallet!.publicKey.toBase58());
+      console.log('withdraw debug - ownerKey.toBase58():', ownerKey.toBase58());
       const signature = await client.withdrawSol({
         timeLockAccount: new PublicKey(lockAddress),
-        owner: wallet!.publicKey
+        owner: ownerKey
       });
+      // --- END DEBUG ---
       
       // Remove from localStorage on successful withdrawal
       localStorage.removeItem(`lock_${lockAddress}`);
@@ -428,9 +680,18 @@ const WithdrawSection: React.FC<{
     } catch (error: any) {
       console.error('Error withdrawing:', error);
       
+      // Include logs if available
+      let errorMessage = error?.message || 'Unknown error occurred';
+      try {
+        if (typeof error.getLogs === 'function') {
+          const logs = await error.getLogs();
+          errorMessage += `\nLogs: ${JSON.stringify(logs)}`;
+        }
+      } catch (logErr) {
+        // ignore
+      }
+
       // Handle specific Rust program errors
-      let errorMessage = 'Unknown error occurred';
-      
       if (error.error?.errorCode?.code) {
         switch (error.error.errorCode.code) {
           case 6000:
@@ -466,6 +727,7 @@ const WithdrawSection: React.FC<{
   else if (!lockData) buttonText = 'No Lock Selected';
   else if (!isOwner) buttonText = 'Not Owner';
   else if (!isUnlocked) buttonText = 'Still Locked';
+  else if (!onChainWithdrawable) buttonText = 'Waiting on-chain';
 
   return (
     <div className="card">
@@ -525,3 +787,4 @@ function App() {
 }
 
 export default App;
+/** @jsxImportSource react */

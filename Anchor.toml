@@ -7,7 +7,8 @@ skip-lint = false
 
 [programs.localnet]
 time_locked_wallet = "899SKikn1WiRBSurKhMZyNCNvYmWXVE6hZFYbFim293g"
-
+[programs.devnet]
+time_locked_wallet = "899SKikn1WiRBSurKhMZyNCNvYmWXVE6hZFYbFim293g"
 [registry]
 url = "https://api.apr.dev"
 
