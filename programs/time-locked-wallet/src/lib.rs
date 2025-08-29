@@ -8,7 +8,7 @@ pub mod utils;
 use instructions::*;
 use state::AssetType;
 
-declare_id!("GxyddTYPY6apph2ZVGriqDu6rjWzPpTcMJ8AtCRSgE5P");
+declare_id!("899SKikn1WiRBSurKhMZyNCNvYmWXVE6hZFYbFim293g");
 
 #[program]
 pub mod time_locked_wallet {
