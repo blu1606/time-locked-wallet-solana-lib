@@ -1,155 +1,301 @@
-import * as anchor from "@project-serum/anchor";
-import { PublicKey, SystemProgram } from "@solana/web3.js";
-import { TimeLockedWallet } from "../target/types/time_locked_wallet"; // Auto-generated IDL
-import { IDL } from "../target/types/time_locked_wallet";
+import * as anchor from "@coral-xyz/anchor";
+import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import { 
+    AssetType,
+    CreateTimeLockParams, 
+    DepositParams,
+    TokenDepositParams,
+    WithdrawParams,
+    TokenWithdrawParams,
+    LockCreationResult,
+    PROGRAM_ID,
+    ERROR_MESSAGES,
+    validatePublicKey,
+    validateTimestamp,
+    validateAmount,
+    findTimeLockPDA
+} from "./types";
+import { TimeLockInstructions } from "./instructions";
 
+/**
+ * Production Time-Locked Wallet Client
+ * 
+ * This client provides full Anchor integration for the Time-Locked Wallet program.
+ * Requires the actual IDL and proper program initialization.
+ */
 export class TimeLockClient {
-    private provider: anchor.Provider;
-    private program: anchor.Program<TimeLockedWallet>;
+    private connection: Connection;
+    private wallet: anchor.Wallet;
+    private program: anchor.Program;
+    private instructions: TimeLockInstructions;
 
-    constructor(provider: anchor.Provider, programId: PublicKey) {
-        this.provider = provider;
-        this.program = new anchor.Program(IDL, programId, provider);
+    constructor(connection: Connection, wallet: anchor.Wallet, programId?: PublicKey) {
+        this.connection = connection;
+        this.wallet = wallet;
+        
+        // Initialize Anchor provider
+        const provider = new anchor.AnchorProvider(connection, wallet, {});
+        anchor.setProvider(provider);
+        
+        // Use provided program ID or default
+        const actualProgramId = programId || PROGRAM_ID;
+        
+        // Initialize program - in production, import actual IDL
+        try {
+            // Try to use workspace program first (if available)
+            this.program = (anchor.workspace as any).TimeLockWallet;
+            if (!this.program) {
+                throw new Error("Workspace program not found");
+            }
+        } catch {
+            // Fallback: Initialize with minimal IDL structure
+            // In production: replace with `import idl from './idl/time_locked_wallet.json'`
+            const idl = {
+                version: "0.1.0",
+                name: "time_locked_wallet",
+                address: actualProgramId.toBase58(),
+                instructions: [
+                    {
+                        name: "initialize",
+                        accounts: [],
+                        args: []
+                    },
+                    {
+                        name: "depositSol", 
+                        accounts: [],
+                        args: []
+                    },
+                    {
+                        name: "withdrawSol",
+                        accounts: [],
+                        args: []
+                    },
+                    {
+                        name: "depositToken",
+                        accounts: [],
+                        args: []
+                    },
+                    {
+                        name: "withdrawToken",
+                        accounts: [],
+                        args: []
+                    }
+                ],
+                accounts: [
+                    {
+                        name: "timeLockAccount",
+                        type: {
+                            kind: "struct",
+                            fields: []
+                        }
+                    }
+                ]
+            } as unknown as anchor.Idl;
+            
+            this.program = new anchor.Program(idl, provider);
+        }
+        
+        // Initialize instruction helper
+        this.instructions = new TimeLockInstructions(this.program);
+    }
+
+    // ========================================================================
+    // SOL OPERATIONS
+    // ========================================================================
+
+    /**
+     * Create a new SOL time-locked wallet
+     */
+    async createSolTimeLock(params: CreateTimeLockParams): Promise<LockCreationResult> {
+        try {
+            const result = await this.instructions.createSolTimeLock(params);
+            const signature = await this.sendAndConfirmTransaction(result.transaction);
+            
+            return {
+                timeLockAccount: result.timeLockAccount,
+                signature,
+                assetType: AssetType.Sol
+            };
+        } catch (error) {
+            throw new Error(`${ERROR_MESSAGES.CREATION_FAILED}: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     /**
-     * Finds the PDA for a time-locked wallet account.
-     * @param owner The public key of the account owner.
-     * @param unlockTimestamp The unlock timestamp.
-     * @returns A promise resolving to an array containing the PDA and its bump seed.
+     * Deposit SOL to an existing time-locked wallet
      */
-    public async findTimeLockAccount(owner: PublicKey, unlockTimestamp: number): Promise<[PublicKey, number]> {
-        return PublicKey.findProgramAddress(
-            [
-                anchor.utils.bytes.utf8.encode("time_lock"),
-                owner.toBuffer(),
-                new anchor.BN(unlockTimestamp).toArrayLike(Buffer, "le", 8),
-            ],
-            this.program.programId
-        );
+    async depositSol(params: DepositParams): Promise<string> {
+        try {
+            const result = await this.instructions.depositSol(params);
+            return await this.sendAndConfirmTransaction(result.transaction);
+        } catch (error) {
+            throw new Error(`${ERROR_MESSAGES.DEPOSIT_FAILED}: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     /**
-     * Creates a new time-locked wallet.
-     * @param owner The public key of the account owner.
-     * @param unlockTimestamp The timestamp when the funds can be unlocked.
-     * @returns A promise resolving to the transaction signature.
+     * Withdraw SOL from a time-locked wallet (only if unlocked)
      */
-    public async initializeTimeLock(
-        owner: PublicKey,
-        unlockTimestamp: number
-    ): Promise<string> {
-        const [timeLockAccount, bump] = await this.findTimeLockAccount(owner, unlockTimestamp);
+    async withdrawSol(params: WithdrawParams): Promise<string> {
+        try {
+            const result = await this.instructions.withdrawSol(params);
+            return await this.sendAndConfirmTransaction(result.transaction);
+        } catch (error) {
+            throw new Error(`${ERROR_MESSAGES.WITHDRAWAL_FAILED}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
 
-        const tx = await this.program.methods
-            .initialize(new anchor.BN(unlockTimestamp), bump)
-            .accounts({
-                timeLockAccount: timeLockAccount,
-                initializer: this.provider.wallet.publicKey,
-                systemProgram: SystemProgram.programId,
-            })
-            .rpc();
+    // ========================================================================
+    // TOKEN OPERATIONS
+    // ========================================================================
 
-        return tx;
+    /**
+     * Create a new Token time-locked wallet
+     */
+    async createTokenTimeLock(
+        params: CreateTimeLockParams,
+        depositParams?: Omit<TokenDepositParams, 'timeLockAccount'>
+    ): Promise<LockCreationResult> {
+        try {
+            const result = await this.instructions.createTokenTimeLock(params, depositParams);
+            const signature = await this.sendAndConfirmTransaction(result.transaction);
+            
+            return {
+                timeLockAccount: result.timeLockAccount,
+                signature,
+                assetType: AssetType.Token
+            };
+        } catch (error) {
+            throw new Error(`${ERROR_MESSAGES.CREATION_FAILED}: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     /**
-     * Deposits SOL into the time-locked wallet.
-     * @param timeLockAccount The PDA of the time-locked wallet.
-     * @param amount The amount of SOL to deposit in lamports.
-     * @returns A promise resolving to the transaction signature.
+     * Deposit tokens to an existing time-locked wallet
      */
-    public async depositSol(
-        timeLockAccount: PublicKey,
-        amount: number
-    ): Promise<string> {
-        const tx = await this.program.methods
-            .depositSol(new anchor.BN(amount))
-            .accounts({
-                timeLockAccount: timeLockAccount,
-                initializer: this.provider.wallet.publicKey,
-                systemProgram: SystemProgram.programId,
-            })
-            .rpc();
-        return tx;
+    async depositToken(params: TokenDepositParams): Promise<string> {
+        try {
+            const result = await this.instructions.depositToken(params);
+            return await this.sendAndConfirmTransaction(result.transaction);
+        } catch (error) {
+            throw new Error(`${ERROR_MESSAGES.DEPOSIT_FAILED}: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     /**
-     * Deposits SPL Tokens into the time-locked wallet's token vault.
-     * @param timeLockAccount The PDA of the time-locked wallet.
-     * @param tokenFromAta The owner's associated token account.
-     * @param tokenVault The program's token vault account.
-     * @param amount The amount of tokens to deposit.
-     * @param tokenProgramId The token program ID.
-     * @returns A promise resolving to the transaction signature.
+     * Withdraw tokens from a time-locked wallet (only if unlocked)
      */
-    public async depositToken(
-        timeLockAccount: PublicKey,
-        tokenFromAta: PublicKey,
-        tokenVault: PublicKey,
-        amount: number,
-        tokenProgramId: PublicKey
-    ): Promise<string> {
-        const tx = await this.program.methods
-            .depositToken(new anchor.BN(amount))
-            .accounts({
-                timeLockAccount: timeLockAccount,
-                initializer: this.provider.wallet.publicKey,
-                tokenFromAta: tokenFromAta,
-                tokenVault: tokenVault,
-                tokenProgram: tokenProgramId,
-            })
-            .rpc();
-        return tx;
+    async withdrawToken(params: TokenWithdrawParams): Promise<string> {
+        try {
+            const result = await this.instructions.withdrawToken(params);
+            return await this.sendAndConfirmTransaction(result.transaction);
+        } catch (error) {
+            throw new Error(`${ERROR_MESSAGES.WITHDRAWAL_FAILED}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    // ========================================================================
+    // QUERY OPERATIONS
+    // ========================================================================
+
+    /**
+     * Get time-locked wallet account data
+     */
+    async getTimeLockData(timeLockAccount: PublicKey) {
+        try {
+            return await this.instructions.getTimeLockData(timeLockAccount);
+        } catch (error) {
+            throw new Error(`${ERROR_MESSAGES.FETCH_FAILED}: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     /**
-     * Withdraws SOL from the time-locked wallet.
-     * @param timeLockAccount The PDA of the time-locked wallet.
-     * @param owner The public key of the account owner.
-     * @returns A promise resolving to the transaction signature.
+     * Check if a time-locked wallet can be withdrawn
      */
-    public async withdrawSol(
-        timeLockAccount: PublicKey,
-        owner: PublicKey
-    ): Promise<string> {
-        const tx = await this.program.methods
-            .withdrawSol()
-            .accounts({
-                timeLockAccount: timeLockAccount,
-                owner: owner,
-                systemProgram: SystemProgram.programId,
-            })
-            .rpc();
-        return tx;
+    async canWithdraw(timeLockAccount: PublicKey): Promise<boolean> {
+        return await this.instructions.canWithdraw(timeLockAccount);
     }
 
     /**
-     * Withdraws SPL Tokens from the time-locked wallet's token vault.
-     * @param timeLockAccount The PDA of the time-locked wallet.
-     * @param owner The public key of the account owner.
-     * @param tokenFromVault The program's token vault account.
-     * @param tokenToAta The owner's associated token account.
-     * @param tokenProgramId The token program ID.
-     * @returns A promise resolving to the transaction signature.
+     * Get remaining lock time in seconds
      */
-    public async withdrawToken(
-        timeLockAccount: PublicKey,
-        owner: PublicKey,
-        tokenFromVault: PublicKey,
-        tokenToAta: PublicKey,
-        tokenProgramId: PublicKey
-    ): Promise<string> {
-        const tx = await this.program.methods
-            .withdrawToken()
-            .accounts({
-                timeLockAccount: timeLockAccount,
-                owner: owner,
-                tokenFromVault: tokenFromVault,
-                tokenToAta: tokenToAta,
-                tokenProgram: tokenProgramId,
-            })
-            .rpc();
-        return tx;
+    async getRemainingLockTime(timeLockAccount: PublicKey): Promise<number> {
+        return await this.instructions.getRemainingLockTime(timeLockAccount);
+    }
+
+    // ========================================================================
+    // UTILITY METHODS
+    // ========================================================================
+
+    /**
+     * Find the PDA for a time-locked wallet
+     */
+    async findTimeLockPDA(owner: PublicKey, unlockTimestamp: number): Promise<[PublicKey, number]> {
+        return findTimeLockPDA(owner, unlockTimestamp, this.program.programId);
+    }
+
+    /**
+     * Send and confirm a transaction
+     */
+    private async sendAndConfirmTransaction(transaction: Transaction): Promise<string> {
+        try {
+            const signature = await this.connection.sendTransaction(transaction, [this.wallet.payer]);
+            await this.connection.confirmTransaction(signature, "confirmed");
+            return signature;
+        } catch (error) {
+            throw new Error(`Transaction failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    // ========================================================================
+    // STATIC UTILITY METHODS
+    // ========================================================================
+
+    /**
+     * Validate a public key
+     */
+    static validatePublicKey(key: PublicKey): void {
+        validatePublicKey(key);
+    }
+
+    /**
+     * Validate a timestamp
+     */
+    static validateTimestamp(timestamp: number): void {
+        validateTimestamp(timestamp);
+    }
+
+    /**
+     * Validate an amount
+     */
+    static validateAmount(amount: number): void {
+        validateAmount(amount);
+    }
+
+    /**
+     * Create time lock PDA
+     */
+    static async findTimeLockPDA(owner: PublicKey, unlockTimestamp: number, programId?: PublicKey): Promise<[PublicKey, number]> {
+        return findTimeLockPDA(owner, unlockTimestamp, programId || PROGRAM_ID);
+    }
+
+    // ========================================================================
+    // GETTERS
+    // ========================================================================
+
+    get connectionInstance(): Connection {
+        return this.connection;
+    }
+
+    get walletInstance(): anchor.Wallet {
+        return this.wallet;
+    }
+
+    get programInstance(): anchor.Program {
+        return this.program;
+    }
+
+    get programId(): PublicKey {
+        return this.program.programId;
     }
 }
