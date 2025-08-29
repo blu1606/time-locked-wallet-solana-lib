@@ -1,144 +1,226 @@
-# Time-Locked Wallet - Complete Project Structure
+# Time-Locked Wallet Solana Library
 
-## 📁 Root Structure
+� **Library tạo time-locked wallet trên Solana** - cho phép người dùng lock SOL/tokens với thời gian unlock định trước.
+
+## ✨ Features
+
+- 🔐 **Time-locked Wallets**: Lock funds với unlock time tùy chỉnh
+- ⏰ **Flexible Timing**: Support lock từ phút đến năm
+- 🔗 **Solana Integration**: Built với @solana/web3.js và Anchor
+- ⚛️ **React Hooks**: Ready-to-use hooks cho frontend
+- 📦 **Easy Import**: Simple API, easy integration
+- 🛡️ **Type Safe**: Full TypeScript support
+
+## 📁 Project Structure
 
 ```
-time-locked-wallet/
-├── programs/                           # Anchor program (Rust)
-│   └── time-locked-wallet/
-│       ├── Cargo.toml
-│       └── src/
-│           ├── lib.rs                  # Main program entry
-│           ├── state.rs                # Account structures
-│           ├── security.rs             # Security validations
-│           ├── utils.rs                # Utility functions
-│           ├── errors.rs               # Custom errors
-│           └── instructions/           # Instruction modules
-│               ├── mod.rs
-│               ├── sol.rs              # SOL operations
-│               ├── token.rs            # SPL token operations
-│               └── admin.rs            # Admin functions
-├── packages/                           # Library packages
-│   ├── core/                          # Core TypeScript client
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   ├── src/
-│   │   │   ├── index.ts               # Main exports
-│   │   │   ├── client.ts              # Main client class
-│   │   │   ├── types.ts               # Type definitions
-│   │   │   ├── constants.ts           # Program constants
-│   │   │   ├── utils.ts               # Client utilities
-│   │   │   ├── builders/              # Instruction builders
-│   │   │   │   ├── index.ts
-│   │   │   │   ├── sol-lock.ts
-│   │   │   │   └── token-lock.ts
-│   │   │   └── instructions/          # Instruction helpers
-│   │   │       ├── index.ts
-│   │   │       ├── sol.ts
-│   │   │       ├── token.ts
-│   │   │       └── admin.ts
-│   │   └── tests/
-│   │       ├── client.test.ts
-│   │       └── builders.test.ts
-│   ├── react/                         # React integration
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   ├── src/
-│   │   │   ├── index.ts               # Main exports
-│   │   │   ├── provider.tsx           # Context provider
-│   │   │   ├── hooks/                 # React hooks
-│   │   │   │   ├── index.ts
-│   │   │   │   ├── useLockCreation.ts
-│   │   │   │   ├── useLockInfo.ts
-│   │   │   │   ├── useUserLocks.ts
-│   │   │   │   └── useWithdraw.ts
-│   │   │   ├── components/            # UI components
-│   │   │   │   ├── index.ts
-│   │   │   │   ├── LockCreationForm.tsx
-│   │   │   │   ├── LockInfoCard.tsx
-│   │   │   │   ├── LocksList.tsx
-│   │   │   │   └── WithdrawButton.tsx
-│   │   │   └── utils/
-│   │   │       ├── formatters.ts
-│   │   │       └── validators.ts
-│   │   └── tests/
-│   │       ├── hooks.test.tsx
-│   │       └── components.test.tsx
-│   ├── cli/                           # Command line interface
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   ├── bin/
-│   │   │   └── tlw                    # CLI entry script
-│   │   ├── src/
-│   │   │   ├── index.ts               # CLI main
-│   │   │   ├── commands/              # CLI commands
-│   │   │   │   ├── index.ts
-│   │   │   │   ├── create-lock.ts
-│   │   │   │   ├── withdraw.ts
-│   │   │   │   ├── list-locks.ts
-│   │   │   │   └── admin.ts
-│   │   │   └── utils/
-│   │   │       ├── config.ts
-│   │   │       └── output.ts
-│   │   └── tests/
-│   │       └── commands.test.ts
-│   └── testing/                       # Testing utilities
-│       ├── package.json
-│       ├── src/
-│       │   ├── index.ts
-│       │   ├── mock-client.ts
-│       │   ├── test-helpers.ts
-│       │   └── fixtures.ts
-│       └── tests/
-│           └── testing.test.ts
-├── examples/                          # Example applications
-│   ├── basic-react/                   # Simple React demo
-│   │   ├── package.json
-│   │   ├── src/
-│   │   │   ├── App.tsx
-│   │   │   ├── index.tsx
-│   │   │   └── components/
-│   │   └── public/
-│   ├── nextjs-demo/                   # Next.js integration
-│   │   ├── package.json
-│   │   ├── pages/
-│   │   ├── components/
-│   │   └── styles/
-│   ├── vanilla-js/                    # Pure JavaScript example
-│   │   ├── index.html
-│   │   ├── script.js
-│   │   └── style.css
-│   └── node-backend/                  # Node.js backend example
-│       ├── package.json
-│       ├── src/
-│       │   ├── server.ts
-│       │   └── routes/
-│       └── types/
-├── tests/                             # Integration tests
-│   ├── anchor/
-│   │   └── enhanced-tests.ts
-│   └── e2e/
-│       ├── package.json
-│       └── specs/
-├── docs/                              # Documentation
-│   ├── README.md
-│   ├── GETTING_STARTED.md
-│   ├── API_REFERENCE.md
-│   ├── EXAMPLES.md
-│   └── MIGRATION_GUIDE.md
-├── scripts/                           # Build & deployment scripts
-│   ├── build.sh
-│   ├── deploy.sh
-│   ├── test.sh
-│   └── publish.sh
-├── .github/                           # GitHub workflows
-│   └── workflows/
-│       ├── ci.yml
-│       ├── publish.yml
-│       └── docs.yml
-├── Anchor.toml                        # Anchor configuration
-├── package.json                       # Root package.json
-├── tsconfig.json                      # Root TypeScript config
-├── lerna.json                         # Monorepo configuration
-└── README.md                          # Main README
+├── packages/
+│   └── react/           # React library với hooks và components
+├── examples/
+│   ├── vanilla-js/      # HTML/CSS/JS demo
+│   └── react-vite/      # React + TypeScript demo
+├── programs/
+│   └── time-locked-wallet/  # Solana program (Rust/Anchor)
+└── docs/               # Documentation
 ```
+
+## 🚀 Quick Start
+### 1. Chạy Examples
+
+**Vanilla JS (No setup required):**
+```bash
+cd examples/vanilla-js
+# Mở index.html trong browser
+```
+
+**React + Vite:**
+```bash
+cd examples/react-vite
+npm install
+npm run dev
+```
+
+### 2. Sử dụng React Library
+
+```bash
+npm install @solana/web3.js @coral-xyz/anchor
+# Copy packages/react vào project của bạn
+```
+
+```tsx
+import React from 'react';
+import { TimeLockProvider, useLockCreation, useLockInfo } from './path-to-react-lib';
+
+function App() {
+  return (
+    <TimeLockProvider
+      connection={connection}
+      cluster="devnet"
+    >
+      <LockDemo />
+    </TimeLockProvider>
+  );
+}
+
+function LockDemo() {
+  const { createLock, isLoading } = useLockCreation();
+  const { lockInfo, refresh } = useLockInfo(lockAddress);
+
+  const handleCreateLock = async () => {
+    await createLock({
+      amount: 0.1,
+      unlockTime: new Date(Date.now() + 60000) // 1 minute
+    });
+  };
+
+  return (
+    <div>
+      <button onClick={handleCreateLock} disabled={isLoading}>
+        Create Lock
+      </button>
+      {lockInfo && (
+        <div>
+          <p>Amount: {lockInfo.amount} SOL</p>
+          <p>Unlock: {lockInfo.unlockTime.toLocaleString()}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## 📚 API Reference
+
+### React Hooks
+
+#### `useLockCreation()`
+```tsx
+const { createLock, isLoading, error } = useLockCreation();
+
+await createLock({
+  amount: number,           // SOL amount to lock
+  unlockTime: Date,        // When to unlock
+  assetType?: AssetType    // SOL or custom token
+});
+```
+
+#### `useLockInfo(lockAddress)`
+```tsx
+const { lockInfo, isLoading, error, refresh } = useLockInfo(lockAddress);
+
+// lockInfo structure:
+{
+  owner: string,
+  amount: number,
+  unlockTime: Date,
+  assetType: AssetType,
+  isUnlocked: boolean
+}
+```
+
+#### `useWithdraw(lockAddress)`
+```tsx
+const { withdraw, canWithdraw, isLoading } = useWithdraw(lockAddress);
+
+await withdraw(); // Withdraw when unlocked
+```
+
+### Provider Setup
+
+```tsx
+<TimeLockProvider
+  connection={connection}        // Solana connection
+  cluster="devnet"              // Network cluster  
+  programId={programId}         // Optional: custom program ID
+>
+  {children}
+</TimeLockProvider>
+```
+
+## 🛠️ Development
+
+### Setup Development Environment
+
+```bash
+# Install dependencies
+npm install
+
+# Build React library
+cd packages/react
+npm run build
+
+# Run examples
+cd examples/react-vite
+npm install && npm run dev
+```
+
+### Testing với Solana Program
+
+```bash
+# Setup Solana CLI và Anchor
+# Build và deploy program
+anchor build
+anchor deploy --provider.cluster devnet
+
+# Update program ID trong examples
+```
+
+## 📖 Examples Deep Dive
+
+### Vanilla JS Example
+- **File:** `examples/vanilla-js/index.html`
+- **Features:** Pure HTML/CSS/JS, no build required
+- **Best for:** Quick demos, learning, simple integrations
+
+### React Example  
+- **File:** `examples/react-vite/src/App.tsx`
+- **Features:** Modern React, TypeScript, component-based
+- **Best for:** Production apps, complex UIs
+
+## 🏗️ Architecture
+
+### Frontend (React)
+- **Provider Pattern**: Context cho configuration
+- **Custom Hooks**: Encapsulate blockchain logic
+- **Local Types**: Self-contained, no external deps
+- **Utils**: Formatters và validators
+
+### Backend (Solana Program)
+- **Anchor Framework**: Modern Solana development
+- **Account Structure**: Efficient state management
+- **Time Validation**: On-chain unlock time checking
+- **Security**: Owner-only withdraw protection
+
+## 🔧 Configuration
+
+### Supported Networks
+- ✅ **Devnet** (recommended for testing)
+- ✅ **Testnet** 
+- ✅ **Mainnet** (production)
+
+### Supported Wallets
+- ✅ **Phantom** (primary)
+- ✅ **Solflare**
+- ✅ **Any wallet-adapter compatible**
+
+## 🤝 Contributing
+
+1. Fork repository
+2. Create feature branch
+3. Make changes
+4. Test với examples
+5. Submit PR
+
+## 📄 License
+
+MIT License - xem `LICENSE` file để biết chi tiết.
+
+## 🆘 Support
+
+- **Issues**: GitHub Issues
+- **Examples**: Check `examples/` folder
+- **Docs**: `docs/` folder
+
+---
+
+**Built with ❤️ for Solana ecosystem**
