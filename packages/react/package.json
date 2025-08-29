@@ -15,14 +15,15 @@
     "hooks"
   ],
   "dependencies": {
-    "@solana/web3.js": "^1.78.0",
-    "@coral-xyz/anchor": "^0.28.0"
+    "@coral-xyz/anchor": "^0.28.0",
+    "@solana/web3.js": "^1.78.0"
   },
   "peerDependencies": {
     "react": ">=16.8.0"
   },
   "devDependencies": {
     "@types/react": "^18.0.0",
+    "react": "^19.1.1",
     "typescript": "^5.0.0"
   }
 }

@@ -55,7 +55,10 @@ export class TimeLockBuilders {
     async buildSolDeposit(params: DepositParams): Promise<TransactionInstruction> {
         validateAmount(params.amount);
 
-        const signerKey = params.depositor || this.program.provider.wallet.publicKey;
+        const signerKey = params.depositor || this.program.provider.wallet?.publicKey;
+        if (!signerKey) {
+            throw new Error('No wallet or depositor provided');
+        }
 
         return await this.program.methods
             .depositSol(new anchor.BN(params.amount))
@@ -113,7 +116,10 @@ export class TimeLockBuilders {
     async buildTokenDeposit(params: TokenDepositParams): Promise<TransactionInstruction> {
         validateAmount(params.amount);
 
-        const signerKey = params.depositor || this.program.provider.wallet.publicKey;
+        const signerKey = params.depositor || this.program.provider.wallet?.publicKey;
+        if (!signerKey) {
+            throw new Error('No wallet or depositor provided');
+        }
 
         return await this.program.methods
             .depositToken(new anchor.BN(params.amount))

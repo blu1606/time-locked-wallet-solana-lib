@@ -1,9 +1,24 @@
+/** @jsxImportSource react */
 import React, { useState, useEffect } from 'react';
 import { Connection, clusterApiUrl, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
+interface WalletInfo {
+  publicKey: any;
+}
+
+interface LockData {
+  owner: string;
+  amount: number;
+  unlockTime: number;
+  created: number;
+}
+
+declare var window: any;
+declare var alert: any;
+
 // Wallet connection hook
 const useWallet = () => {
-  const [wallet, setWallet] = useState(null);
+  const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [connecting, setConnecting] = useState(false);
 
   const connect = async () => {
@@ -16,7 +31,7 @@ const useWallet = () => {
       setConnecting(true);
       const response = await window.solana.connect();
       setWallet(response);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error connecting wallet:', error);
       alert('Error connecting wallet: ' + error.message);
     } finally {
@@ -24,7 +39,6 @@ const useWallet = () => {
     }
   };
 
-  // Check if already connected
   useEffect(() => {
     const checkConnection = async () => {
       if (window.solana && window.solana.isPhantom) {
@@ -45,8 +59,8 @@ const useWallet = () => {
 };
 
 // Wallet component
-const WalletConnection = ({ wallet, connect, connecting }) => {
-  const [balance, setBalance] = useState(null);
+const WalletConnection: React.FC<{ wallet: WalletInfo | null; connect: () => void; connecting: boolean }> = ({ wallet, connect, connecting }) => {
+  const [balance, setBalance] = useState<number | null>(null);
   const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
 
   useEffect(() => {
@@ -87,11 +101,11 @@ const WalletConnection = ({ wallet, connect, connecting }) => {
 };
 
 // Create lock form
-const CreateLockForm = ({ wallet, onLockCreated }) => {
+const CreateLockForm: React.FC<{ wallet: WalletInfo | null; onLockCreated: (address: string) => void }> = ({ wallet, onLockCreated }) => {
   const [amount, setAmount] = useState('0.1');
   const [unlockDate, setUnlockDate] = useState('');
   const [unlockTime, setUnlockTime] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -105,23 +119,23 @@ const CreateLockForm = ({ wallet, onLockCreated }) => {
     setUnlockTime(timeString);
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!wallet) {
-      setStatus(<div className="error">Please connect your wallet first</div>);
+      setStatus('Please connect your wallet first');
       return;
     }
 
     const unlockDateTime = new Date(`${unlockDate}T${unlockTime}`);
     if (unlockDateTime <= new Date()) {
-      setStatus(<div className="error">Unlock time must be in the future</div>);
+      setStatus('Unlock time must be in the future');
       return;
     }
 
     try {
       setLoading(true);
-      setStatus(<div className="info">Creating time-locked wallet...</div>);
+      setStatus('Creating time-locked wallet...');
       
       // Simulate processing
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -130,7 +144,7 @@ const CreateLockForm = ({ wallet, onLockCreated }) => {
       const mockLockAddress = new PublicKey(Math.floor(Math.random() * 1000000000)).toString();
       
       // Store in localStorage for demo
-      const lockData = {
+      const lockData: LockData = {
         owner: wallet.publicKey.toString(),
         amount: parseFloat(amount),
         unlockTime: unlockDateTime.getTime(),
@@ -138,11 +152,11 @@ const CreateLockForm = ({ wallet, onLockCreated }) => {
       };
       localStorage.setItem(`lock_${mockLockAddress}`, JSON.stringify(lockData));
       
-      setStatus(<div className="success">Lock created successfully!</div>);
+      setStatus('Lock created successfully!');
       onLockCreated(mockLockAddress);
       
-    } catch (error) {
-      setStatus(<div className="error">Error creating lock: {error.message}</div>);
+    } catch (error: any) {
+      setStatus(`Error creating lock: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -168,7 +182,7 @@ const CreateLockForm = ({ wallet, onLockCreated }) => {
             step="0.001"
             min="0.001"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => setAmount((e.currentTarget as any).value)}
             required
           />
         </div>
@@ -177,7 +191,7 @@ const CreateLockForm = ({ wallet, onLockCreated }) => {
           <input
             type="date"
             value={unlockDate}
-            onChange={(e) => setUnlockDate(e.target.value)}
+            onChange={(e) => setUnlockDate((e.currentTarget as any).value)}
             min={new Date().toISOString().split('T')[0]}
             required
           />
@@ -187,7 +201,7 @@ const CreateLockForm = ({ wallet, onLockCreated }) => {
           <input
             type="time"
             value={unlockTime}
-            onChange={(e) => setUnlockTime(e.target.value)}
+            onChange={(e) => setUnlockTime((e.currentTarget as any).value)}
             required
           />
         </div>
@@ -201,8 +215,8 @@ const CreateLockForm = ({ wallet, onLockCreated }) => {
 };
 
 // Lock info component
-const LockInfo = ({ lockAddress, wallet }) => {
-  const [lockData, setLockData] = useState(null);
+const LockInfo: React.FC<{ lockAddress: string; wallet: WalletInfo | null }> = ({ lockAddress, wallet }) => {
+  const [lockData, setLockData] = useState<LockData | null>(null);
   const [timeRemaining, setTimeRemaining] = useState('');
 
   useEffect(() => {
@@ -298,11 +312,12 @@ const LockInfo = ({ lockAddress, wallet }) => {
 };
 
 // Withdraw component
-const WithdrawSection = ({ lockAddress, wallet, onWithdraw }) => {
-  const [status, setStatus] = useState('');
+const WithdrawSection: React.FC<{ lockAddress: string; wallet: WalletInfo | null; onWithdraw: () => void }> = ({ lockAddress, wallet, onWithdraw }) => {
+  const [status, setStatus] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
-  const lockData = lockAddress ? JSON.parse(localStorage.getItem(`lock_${lockAddress}`) || 'null') : null;
+  const lockDataStr = lockAddress ? localStorage.getItem(`lock_${lockAddress}`) : null;
+  const lockData: LockData | null = lockDataStr ? JSON.parse(lockDataStr) : null;
   const isUnlocked = lockData && Date.now() >= lockData.unlockTime;
   const isOwner = lockData && wallet && wallet.publicKey.toString() === lockData.owner;
   const canWithdraw = isUnlocked && isOwner;
@@ -312,7 +327,7 @@ const WithdrawSection = ({ lockAddress, wallet, onWithdraw }) => {
 
     try {
       setLoading(true);
-      setStatus(<div className="info">Processing withdrawal...</div>);
+      setStatus('Processing withdrawal...');
       
       // Simulate processing
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -320,11 +335,11 @@ const WithdrawSection = ({ lockAddress, wallet, onWithdraw }) => {
       // Remove from localStorage
       localStorage.removeItem(`lock_${lockAddress}`);
       
-      setStatus(<div className="success">Withdrawal successful! Funds sent to your wallet.</div>);
+      setStatus('Withdrawal successful! Funds sent to your wallet.');
       onWithdraw();
       
-    } catch (error) {
-      setStatus(<div className="error">Error withdrawing: {error.message}</div>);
+    } catch (error: any) {
+      setStatus(`Error withdrawing: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -355,7 +370,7 @@ function App() {
   const { wallet, connect, connecting } = useWallet();
   const [currentLockAddress, setCurrentLockAddress] = useState('');
 
-  const handleLockCreated = (address) => {
+  const handleLockCreated = (address: string) => {
     setCurrentLockAddress(address);
   };
 
