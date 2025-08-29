@@ -11,7 +11,8 @@
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "@solana/web3.js": "^1.95.0",
-    "@coral-xyz/anchor": "^0.29.0"
+    "@coral-xyz/anchor": "^0.29.0",
+    "@time-locked-wallet/core": "file:../../packages/core"
   },
   "devDependencies": {
     "@types/react": "^18.0.0",

@@ -1,9 +1,11 @@
 /** @jsxImportSource react */
 import React, { useState, useEffect } from 'react';
 import { Connection, clusterApiUrl, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { TimeLockClient, AssetType } from '@time-locked-wallet/core';
+import * as anchor from '@coral-xyz/anchor';
 
 interface WalletInfo {
-  publicKey: any;
+  publicKey: PublicKey;
 }
 
 interface LockData {
@@ -11,7 +13,20 @@ interface LockData {
   amount: number;
   unlockTime: number;
   created: number;
+  lockAddress: string;
 }
+
+// Connection và client setup
+const connection = new Connection(clusterApiUrl('devnet'));
+
+// TimeLock context
+const TimeLockContext = React.createContext<{
+  client: TimeLockClient | null;
+  wallet: WalletInfo | null;
+}>({
+  client: null,
+  wallet: null,
+});
 
 declare var window: any;
 declare var alert: any;
@@ -20,6 +35,7 @@ declare var alert: any;
 const useWallet = () => {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [client, setClient] = useState<TimeLockClient | null>(null);
 
   const connect = async () => {
     if (!window.solana || !window.solana.isPhantom) {
@@ -30,7 +46,19 @@ const useWallet = () => {
     try {
       setConnecting(true);
       const response = await window.solana.connect();
-      setWallet(response);
+      const walletInfo = { publicKey: response.publicKey };
+      setWallet(walletInfo);
+
+      // Initialize TimeLockClient
+      const anchorWallet = {
+        publicKey: response.publicKey,
+        signTransaction: window.solana.signTransaction,
+        signAllTransactions: window.solana.signAllTransactions,
+      };
+      
+      const timeLockClient = new TimeLockClient(connection, anchorWallet);
+      setClient(timeLockClient);
+      
     } catch (error: any) {
       console.error('Error connecting wallet:', error);
       alert('Error connecting wallet: ' + error.message);
@@ -55,7 +83,7 @@ const useWallet = () => {
     checkConnection();
   }, []);
 
-  return { wallet, connect, connecting };
+  return { wallet, connect, connecting, client };
 };
 
 // Wallet component
@@ -101,7 +129,11 @@ const WalletConnection: React.FC<{ wallet: WalletInfo | null; connect: () => voi
 };
 
 // Create lock form
-const CreateLockForm: React.FC<{ wallet: WalletInfo | null; onLockCreated: (address: string) => void }> = ({ wallet, onLockCreated }) => {
+const CreateLockForm: React.FC<{ 
+  wallet: WalletInfo | null; 
+  client: TimeLockClient | null;
+  onLockCreated: (address: string) => void 
+}> = ({ wallet, client, onLockCreated }) => {
   const [amount, setAmount] = useState('0.1');
   const [unlockDate, setUnlockDate] = useState('');
   const [unlockTime, setUnlockTime] = useState('');
@@ -122,7 +154,7 @@ const CreateLockForm: React.FC<{ wallet: WalletInfo | null; onLockCreated: (addr
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!wallet) {
+    if (!wallet || !client) {
       setStatus('Please connect your wallet first');
       return;
     }
@@ -133,30 +165,77 @@ const CreateLockForm: React.FC<{ wallet: WalletInfo | null; onLockCreated: (addr
       return;
     }
 
+    // Check if user has enough balance
+    try {
+      const balance = await connection.getBalance(wallet.publicKey);
+      const balanceInSOL = balance / LAMPORTS_PER_SOL;
+      const amountToLock = parseFloat(amount);
+      
+      if (balanceInSOL < amountToLock) {
+        setStatus(`Insufficient balance. You have ${balanceInSOL.toFixed(4)} SOL, need ${amountToLock} SOL`);
+        return;
+      }
+    } catch (error) {
+      setStatus('Error checking balance');
+      return;
+    }
+
     try {
       setLoading(true);
-      setStatus('Creating time-locked wallet...');
+      setStatus('Creating time-locked wallet with Solana program...');
       
-      // Simulate processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Use real TimeLockClient
+      const unlockTimestamp = Math.floor(unlockDateTime.getTime() / 1000);
+      const result = await client.createSolTimeLock({
+        owner: wallet.publicKey,
+        unlockTimestamp,
+        amount: parseFloat(amount) * LAMPORTS_PER_SOL // Convert to lamports
+      });
       
-      // Generate mock lock address
-      const mockLockAddress = new PublicKey(Math.floor(Math.random() * 1000000000)).toString();
-      
-      // Store in localStorage for demo
+      // Store successful result
       const lockData: LockData = {
         owner: wallet.publicKey.toString(),
         amount: parseFloat(amount),
         unlockTime: unlockDateTime.getTime(),
-        created: Date.now()
+        created: Date.now(),
+        lockAddress: result.timeLockAccount.toString()
       };
-      localStorage.setItem(`lock_${mockLockAddress}`, JSON.stringify(lockData));
+      localStorage.setItem(`lock_${result.timeLockAccount.toString()}`, JSON.stringify(lockData));
       
-      setStatus('Lock created successfully!');
-      onLockCreated(mockLockAddress);
+      setStatus(`✅ Lock created successfully! Transaction: ${result.signature}`);
+      onLockCreated(result.timeLockAccount.toString());
       
     } catch (error: any) {
-      setStatus(`Error creating lock: ${error.message}`);
+      console.error('Error creating lock:', error);
+      
+      // Handle specific Rust program errors
+      let errorMessage = 'Unknown error occurred';
+      
+      if (error.error?.errorCode?.code) {
+        switch (error.error.errorCode.code) {
+          case 6000:
+            errorMessage = 'Withdrawal too early - unlock time not reached';
+            break;
+          case 6001:
+            errorMessage = 'Invalid asset type for this operation';
+            break;
+          case 6002:
+            errorMessage = 'Invalid token vault account';
+            break;
+          case 6003:
+            errorMessage = 'Invalid timestamp - must be in future';
+            break;
+          case 6004:
+            errorMessage = 'Invalid amount - must be greater than zero';
+            break;
+          default:
+            errorMessage = error.error?.errorMessage || error.message || 'Transaction failed';
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setStatus(`❌ Error creating lock: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -312,7 +391,12 @@ const LockInfo: React.FC<{ lockAddress: string; wallet: WalletInfo | null }> = (
 };
 
 // Withdraw component
-const WithdrawSection: React.FC<{ lockAddress: string; wallet: WalletInfo | null; onWithdraw: () => void }> = ({ lockAddress, wallet, onWithdraw }) => {
+const WithdrawSection: React.FC<{ 
+  lockAddress: string; 
+  wallet: WalletInfo | null; 
+  client: TimeLockClient | null;
+  onWithdraw: () => void 
+}> = ({ lockAddress, wallet, client, onWithdraw }) => {
   const [status, setStatus] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
@@ -323,23 +407,55 @@ const WithdrawSection: React.FC<{ lockAddress: string; wallet: WalletInfo | null
   const canWithdraw = isUnlocked && isOwner;
 
   const handleWithdraw = async () => {
-    if (!canWithdraw) return;
+    if (!canWithdraw || !client) return;
 
     try {
       setLoading(true);
-      setStatus('Processing withdrawal...');
+      setStatus('Processing withdrawal with Solana program...');
       
-      // Simulate processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Use real TimeLockClient
+      const signature = await client.withdrawSol({
+        timeLockAccount: new PublicKey(lockAddress),
+        owner: wallet!.publicKey
+      });
       
-      // Remove from localStorage
+      // Remove from localStorage on successful withdrawal
       localStorage.removeItem(`lock_${lockAddress}`);
       
-      setStatus('Withdrawal successful! Funds sent to your wallet.');
+      setStatus(`✅ Withdrawal successful! Transaction: ${signature}`);
       onWithdraw();
       
     } catch (error: any) {
-      setStatus(`Error withdrawing: ${error.message}`);
+      console.error('Error withdrawing:', error);
+      
+      // Handle specific Rust program errors
+      let errorMessage = 'Unknown error occurred';
+      
+      if (error.error?.errorCode?.code) {
+        switch (error.error.errorCode.code) {
+          case 6000:
+            errorMessage = '⏰ Withdrawal too early - unlock time not reached yet';
+            break;
+          case 6001:
+            errorMessage = 'Invalid asset type for this operation';
+            break;
+          case 6002:
+            errorMessage = 'Invalid token vault account';
+            break;
+          case 6003:
+            errorMessage = 'Invalid timestamp';
+            break;
+          case 6004:
+            errorMessage = 'Invalid amount - account has insufficient balance';
+            break;
+          default:
+            errorMessage = error.error?.errorMessage || error.message || 'Transaction failed';
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setStatus(`❌ Error withdrawing: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -367,7 +483,7 @@ const WithdrawSection: React.FC<{ lockAddress: string; wallet: WalletInfo | null
 
 // Main App
 function App() {
-  const { wallet, connect, connecting } = useWallet();
+  const { wallet, connect, connecting, client } = useWallet();
   const [currentLockAddress, setCurrentLockAddress] = useState('');
 
   const handleLockCreated = (address: string) => {
@@ -389,19 +505,19 @@ function App() {
         connecting={connecting} 
       />
       
-      <CreateLockForm 
-        wallet={wallet} 
-        onLockCreated={handleLockCreated} 
-      />
-      
-      <LockInfo 
+      <CreateLockForm
+        wallet={wallet}
+        client={client}
+        onLockCreated={handleLockCreated}
+      />      <LockInfo 
         lockAddress={currentLockAddress} 
         wallet={wallet} 
       />
       
       <WithdrawSection 
         lockAddress={currentLockAddress} 
-        wallet={wallet} 
+        wallet={wallet}
+        client={client}
         onWithdraw={handleWithdraw} 
       />
     </div>
