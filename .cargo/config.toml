@@ -1,5 +1,11 @@
 [build]
 # Default build settings
+rustc-wrapper = "sccache"
+
+# Use mold for faster linking
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
 
 # Optimize for faster builds in dev mode
 [profile.dev]
@@ -22,3 +28,8 @@ rustflags = [
     "-C", "force-frame-pointers=no",
     "-C", "overflow-checks=on"
 ]
+
+# sccache configuration
+[env]
+SCCACHE_CACHE_SIZE = "10G"
+SCCACHE_DIR = { value = "/home/blue/.cache/sccache", force = true }

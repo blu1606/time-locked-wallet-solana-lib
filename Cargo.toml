@@ -5,8 +5,8 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-anchor-lang = { version = "0.31.1", default-features = false, features = ["derive"] }
-anchor-spl = { version = "0.31.1", default-features = false, features = ["token", "associated_token"] }
+anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
+anchor-spl = { version = "0.31.1", features = ["default"] }
 
 [profile.release]
 overflow-checks = true

@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use crate::state::{TimeLockAccount, AssetType};
+use crate::state::TimeLockAccount;
 
 // Utility functions for the time-locked wallet program
 

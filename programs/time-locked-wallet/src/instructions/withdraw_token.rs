@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use crate::{state::{TimeLockAccount, AssetType}, errors::TimeLockError};
-use anchor_spl::token::{Token, TokenAccount, Transfer};
+use anchor_spl::token::{Token, TokenAccount, Transfer, Mint};
 
 #[derive(Accounts)]
 pub struct WithdrawToken<'info> {
