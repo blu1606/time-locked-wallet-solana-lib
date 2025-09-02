@@ -12,7 +12,13 @@ export { TimeLockProvider, useTimeLockContext } from "./provider";
  */
 export { useLockCreation } from "./hooks/useLockCreation";
 export { useLockInfo } from "./hooks/useLockInfo";
+export { useUserLocks } from "./hooks/useUserLocks";
 export { useWithdraw } from "./hooks/useWithdraw";
+
+/**
+ * React Components
+ */
+export * from "./components";
 
 /**
  * Utilities
