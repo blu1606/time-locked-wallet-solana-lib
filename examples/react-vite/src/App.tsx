@@ -21,6 +21,7 @@ import {
 // Pages
 import CreateLockPage from './pages/CreateLockPage';
 import DashboardPage from './pages/DashboardPage';
+import AccountTestPage from './pages/AccountTestPage';
 
 // Types
 interface WalletInfo {

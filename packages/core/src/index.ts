@@ -29,6 +29,7 @@ export { Logger } from "./logger";
 export { PerformanceMonitor } from "./performance";
 export { ErrorHandler, TimeLockError, ValidationError, NetworkError, ProgramError } from "./errors";
 export { MockTimeLockClient } from "./mock-client";
+export { AccountUtils, BalanceUtils } from "./account-utils";
 
 /**
  * Re-export common Solana/Anchor types for convenience

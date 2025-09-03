@@ -40,7 +40,7 @@ export declare class TimeLockClient {
     /**
      * Get time-locked wallet account data
      */
-    getTimeLockData(timeLockAccount: PublicKey): Promise<anchor.web3.AccountInfo<Buffer>>;
+    getTimeLockData(timeLockAccount: PublicKey): Promise<anchor.web3.AccountInfo<Buffer<ArrayBufferLike>>>;
     /**
      * Check if a time-locked wallet can be withdrawn
      */

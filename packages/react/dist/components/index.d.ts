@@ -10,5 +10,7 @@ export { LockCreationForm } from './LockCreationForm';
 export { LockInfoCard } from './LockInfoCard';
 export { LocksList } from './LocksList';
 export { WithdrawButton } from './WithdrawButton';
+export { BalanceDisplay } from './BalanceDisplay';
+export { AirdropButton, SimpleAirdropButton } from './AirdropButton';
 export type { Token } from './TokenSelector';
 //# sourceMappingURL=index.d.ts.map

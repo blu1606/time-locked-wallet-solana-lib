@@ -13,6 +13,17 @@ export { TimeLockInstructions } from "./instructions";
  */
 export * from "./types";
 /**
+ * Enhanced utilities and managers
+ */
+export * from "./utils/validation";
+export { TransactionManager } from "./transaction-manager";
+export { StorageManager } from "./storage-manager";
+export { Logger } from "./logger";
+export { PerformanceMonitor } from "./performance";
+export { ErrorHandler, TimeLockError, ValidationError, NetworkError, ProgramError } from "./errors";
+export { MockTimeLockClient } from "./mock-client";
+export { AccountUtils, BalanceUtils } from "./account-utils";
+/**
  * Re-export common Solana/Anchor types for convenience
  */
 export { Connection, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";

@@ -14,5 +14,9 @@ export { LockInfoCard } from './LockInfoCard';
 export { LocksList } from './LocksList';
 export { WithdrawButton } from './WithdrawButton';
 
+// Account Components
+export { BalanceDisplay } from './BalanceDisplay';
+export { AirdropButton, SimpleAirdropButton } from './AirdropButton';
+
 // Types
 export type { Token } from './TokenSelector';
