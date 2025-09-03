@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use crate::state::{TimeLockAccount, AssetType};
 use crate::errors::TimeLockError;
-use anchor_lang::system_program;
+use crate::events::WithdrawalEvent;
 use anchor_spl::token::{Token, TokenAccount, Transfer};
 
 // ============================================================================
@@ -9,67 +9,117 @@ use anchor_spl::token::{Token, TokenAccount, Transfer};
 // ============================================================================
 
 #[derive(Accounts)]
+#[instruction(amount: u64)]
 pub struct WithdrawSol<'info> {
     #[account(
         mut, 
         seeds = [b"time_lock", owner.key().as_ref(), &time_lock_account.unlock_timestamp.to_le_bytes()],
         bump = time_lock_account.bump,
-        close = owner, // Close account and send rent to owner
-        has_one = owner,
+        has_one = owner @ TimeLockError::Unauthorized,
         constraint = time_lock_account.asset_type == AssetType::Sol @ TimeLockError::InvalidAssetType
     )]
     pub time_lock_account: Account<'info, TimeLockAccount>,
     
     #[account(mut)]
     pub owner: Signer<'info>,
+    
+    /// CHECK: Recipient account will be validated during transfer
+    #[account(mut)]
+    pub recipient: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
 }
 
 pub fn withdraw_sol(ctx: Context<WithdrawSol>) -> Result<()> {
-    let time_lock_account = &ctx.accounts.time_lock_account;
-    let current_timestamp = Clock::get()?.unix_timestamp;
-
-    // Check if unlock time has passed
-    if current_timestamp < time_lock_account.unlock_timestamp {
-        return err!(TimeLockError::WithdrawalTooEarly);
-    }
-
-    // Validate withdrawal amount
-    let amount_to_transfer = time_lock_account.amount;
-    require!(amount_to_transfer > 0, TimeLockError::InvalidAmount);
-
-    // Verify account has sufficient balance
-    let account_balance = time_lock_account.to_account_info().lamports();
-    require!(account_balance >= amount_to_transfer, TimeLockError::InvalidAmount);
-
-    // Prepare PDA signing seeds
+    // 🔍 PHASE 1: CHECKS - Validate all conditions first  
+    msg!("🔍 WITHDRAWAL_INITIATED: Starting SOL withdrawal validation");
+    msg!("📍 Account: {}", ctx.accounts.time_lock_account.key());
+    msg!("👤 Owner: {}", ctx.accounts.owner.key());
+    msg!("📫 Recipient: {}", ctx.accounts.recipient.key());
+    
+    let time_lock_account = &mut ctx.accounts.time_lock_account;
+    
+    // Start reentrancy protection with monitoring
+    time_lock_account.start_operation_with_monitoring(ctx.accounts.owner.key())?;
+    
+    // Validate withdrawal conditions (includes detailed logging)
+    time_lock_account.validate_sol_withdrawal()?;
+    
+    let amount_to_transfer = time_lock_account.sol_balance;
+    msg!("💰 WITHDRAWAL_AMOUNT: {} lamports ({} SOL)", 
+         amount_to_transfer, amount_to_transfer as f64 / 1_000_000_000.0);
+    
+    // 🔧 PHASE 2: EFFECTS - Update state BEFORE external interactions
+    msg!("🔧 STATE_UPDATE: Updating account balances before transfer");
+    
+    // Update balance first (critical for reentrancy protection)
+    time_lock_account.sol_balance = 0;
+    time_lock_account.amount = 0;
+    
+    msg!("📊 BALANCE_RESET: Account balances set to 0");
+    
+    // 🌐 PHASE 3: INTERACTIONS - External calls last
+    msg!("🌐 TRANSFER_EXECUTION: Executing SOL transfer to recipient");
+    
+    // Prepare signer seeds (fix lifetime issue)
     let owner_key = ctx.accounts.owner.key();
-    let unlock_timestamp_le = time_lock_account.unlock_timestamp.to_le_bytes();
-    let time_lock_seeds = &[
+    let signer_seeds = &[
         b"time_lock",
         owner_key.as_ref(),
-        &unlock_timestamp_le.as_ref(),
+        &time_lock_account.unlock_timestamp.to_le_bytes(),
         &[time_lock_account.bump],
     ];
-    let signer = &[&time_lock_seeds[..]];
-
-    // Execute SOL transfer using system_program CPI with signer
-    let cpi_accounts = system_program::Transfer {
-        from: ctx.accounts.time_lock_account.to_account_info(),
-        to: ctx.accounts.owner.to_account_info(),
-    };
-    let cpi_program = ctx.accounts.system_program.to_account_info();
-    let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
+    let signer = &[&signer_seeds[..]];
     
-    system_program::transfer(cpi_ctx, amount_to_transfer)?;
-
-    // Reset amount (account will be closed by Anchor)
-    let time_lock_account = &mut ctx.accounts.time_lock_account;
-    time_lock_account.amount = 0;
-
-    msg!("Withdrawn {} lamports from time-locked wallet", amount_to_transfer);
-    Ok(())
+    // Create transfer instruction
+    let transfer_instruction = anchor_lang::system_program::Transfer {
+        from: time_lock_account.to_account_info(),
+        to: ctx.accounts.recipient.to_account_info(),
+    };
+    
+    // Execute transfer with PDA signing
+    let result = anchor_lang::system_program::transfer(
+        CpiContext::new_with_signer(
+            ctx.accounts.system_program.to_account_info(),
+            transfer_instruction,
+            signer,
+        ),
+        amount_to_transfer,
+    );
+    
+    // 🔓 Always reset reentrancy guard (regardless of success/failure)
+    time_lock_account.end_operation();
+    
+    // Check transfer result with detailed logging
+    match result {
+        Ok(_) => {
+            msg!("✅ TRANSFER_SUCCESS: SOL transfer completed successfully");
+            msg!("💰 AMOUNT_TRANSFERRED: {} lamports", amount_to_transfer);
+            msg!("📫 RECIPIENT_RECEIVED: {}", ctx.accounts.recipient.key());
+            
+            // Emit event for successful withdrawal
+            emit!(WithdrawalEvent {
+                time_lock_account: ctx.accounts.time_lock_account.key(),
+                owner: ctx.accounts.owner.key(),
+                recipient: ctx.accounts.recipient.key(),
+                amount: amount_to_transfer,
+                remaining_balance: 0, // All SOL withdrawn
+                timestamp: Clock::get()?.unix_timestamp,
+                asset_type: AssetType::Sol,
+            });
+            
+            Ok(())
+        },
+        Err(e) => {
+            msg!("❌ SOL transfer failed: {:?}", e);
+            
+            // ⏪ ROLLBACK: Restore balance if transfer failed
+            time_lock_account.sol_balance = amount_to_transfer;
+            time_lock_account.amount = amount_to_transfer;
+            
+            Err(e.into())
+        }
+    }
 }
 
 // ============================================================================
@@ -111,7 +161,7 @@ pub fn withdraw_token(ctx: Context<WithdrawToken>) -> Result<()> {
 
     // Check if unlock time has passed
     if current_timestamp < time_lock_account.unlock_timestamp {
-        return err!(TimeLockError::WithdrawalTooEarly);
+        return err!(TimeLockError::TimeLockNotExpired);
     }
     
     // Validate withdrawal amount
