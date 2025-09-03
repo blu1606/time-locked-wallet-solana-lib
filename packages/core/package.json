@@ -1,0 +1,37 @@
+{
+  "name": "@time-locked-wallet/core",
+  "version": "1.0.0",
+  "description": "Core library for Time-Locked Wallet Solana program",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "dev": "tsc --watch"
+  },
+  "keywords": [
+    "solana",
+    "time-lock",
+    "anchor",
+    "blockchain"
+  ],
+  "dependencies": {
+    "@solana/web3.js": "^1.78.0",
+    "@coral-xyz/anchor": "^0.28.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "@solana/web3.js": ">=1.70.0",
+    "@coral-xyz/anchor": ">=0.28.0"
+  }
+}
