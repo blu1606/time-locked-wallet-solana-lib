@@ -6,3 +6,11 @@ node_modules
 test-ledger
 .yarn
 .venv
+
+# Build outputs
+dist/
+**/dist/
+
+# Environment files
+.env
+.env.*
