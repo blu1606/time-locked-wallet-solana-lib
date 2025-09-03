@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use crate::state::{TimeLockAccount, AssetType};
 use crate::errors::TimeLockError;
+use crate::events::DepositEvent;
 use anchor_lang::system_program;
 use anchor_spl::token::{Token, TokenAccount, Transfer};
 
@@ -27,9 +28,24 @@ pub struct DepositSol<'info> {
 }
 
 pub fn deposit_sol(ctx: Context<DepositSol>, amount: u64) -> Result<()> {
-    // Validate amount
+    // 🔍 PHASE 1: CHECKS - Validate all conditions first
+    msg!("🔍 Starting SOL deposit validation...");
+    
+    // Basic validations
+    require!(ctx.accounts.time_lock_account.is_initialized, TimeLockError::NotInitialized);
     require!(amount > 0, TimeLockError::InvalidAmount);
-
+    
+    // Reentrancy protection
+    ctx.accounts.time_lock_account.start_operation()?;
+    
+    msg!("✅ Validation passed. Depositing: {} lamports", amount);
+    
+    // 🌐 PHASE 2: INTERACTIONS - Execute transfer first
+    msg!("🌐 Executing SOL transfer...");
+    
+    // Get account key before mutable borrow
+    let time_lock_key = ctx.accounts.time_lock_account.key();
+    
     // Execute SOL transfer using system_program CPI
     let cpi_accounts = system_program::Transfer {
         from: ctx.accounts.initializer.to_account_info(),
@@ -38,15 +54,48 @@ pub fn deposit_sol(ctx: Context<DepositSol>, amount: u64) -> Result<()> {
     let cpi_program = ctx.accounts.system_program.to_account_info();
     let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
     
-    system_program::transfer(cpi_ctx, amount)?;
-
-    // Update account balance
+    let result = system_program::transfer(cpi_ctx, amount);
+    
     let time_lock_account = &mut ctx.accounts.time_lock_account;
-    time_lock_account.amount = time_lock_account.amount.checked_add(amount)
-        .ok_or(TimeLockError::InvalidAmount)?;
-
-    msg!("Deposited {} lamports to time-locked wallet", amount);
-    Ok(())
+    
+    match result {
+        Ok(_) => {
+            // 🔧 PHASE 3: EFFECTS - Update state AFTER successful transfer
+            msg!("🔧 Updating account balance...");
+            
+            // Update balance after successful transfer
+            time_lock_account.sol_balance = time_lock_account.sol_balance
+                .checked_add(amount)
+                .ok_or(TimeLockError::ArithmeticOverflow)?;
+            
+            time_lock_account.amount = time_lock_account.amount
+                .checked_add(amount)
+                .ok_or(TimeLockError::ArithmeticOverflow)?;
+            
+            msg!("✅ New balance: {} lamports", time_lock_account.sol_balance);
+            
+            // Emit deposit event
+            emit!(DepositEvent {
+                time_lock_account: time_lock_key,
+                depositor: ctx.accounts.initializer.key(),
+                amount,
+                new_balance: time_lock_account.sol_balance,
+                timestamp: Clock::get()?.unix_timestamp,
+                asset_type: AssetType::Sol,
+            });
+            
+            // ✅ End operation
+            time_lock_account.end_operation();
+            Ok(())
+        },
+        Err(e) => {
+            msg!("❌ SOL transfer failed: {:?}", e);
+            
+            // ✅ End operation on failure
+            time_lock_account.end_operation();
+            Err(e.into())
+        }
+    }
 }
 
 // ============================================================================
@@ -88,6 +137,16 @@ pub struct DepositToken<'info> {
 pub fn deposit_token(ctx: Context<DepositToken>, amount: u64) -> Result<()> {
     // Validate amount
     require!(amount > 0, TimeLockError::InvalidAmount);
+    
+    // Check initialization
+    require!(ctx.accounts.time_lock_account.is_initialized, TimeLockError::NotInitialized);
+    
+    // 🔒 Reentrancy protection
+    ctx.accounts.time_lock_account.start_operation()?;
+
+    // Get keys before mutable borrow
+    let time_lock_key = ctx.accounts.time_lock_account.key();
+    let depositor_key = ctx.accounts.initializer.key();
 
     // Setup CPI for token transfer
     let cpi_accounts = Transfer {
@@ -100,20 +159,41 @@ pub fn deposit_token(ctx: Context<DepositToken>, amount: u64) -> Result<()> {
     let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
 
     // Execute token transfer
-    anchor_spl::token::transfer(cpi_ctx, amount)?;
-
-    // Update account state
+    let result = anchor_spl::token::transfer(cpi_ctx, amount);
+    
     let time_lock_account = &mut ctx.accounts.time_lock_account;
     
-    // Set token_vault if not already set
-    if time_lock_account.token_vault == Pubkey::default() {
-        time_lock_account.token_vault = ctx.accounts.token_vault.key();
-    }
-    
-    // Update amount with overflow check
-    time_lock_account.amount = time_lock_account.amount.checked_add(amount)
-        .ok_or(TimeLockError::InvalidAmount)?;
+    match result {
+        Ok(_) => {
+            // Set token_vault if not already set
+            if time_lock_account.token_vault == Pubkey::default() {
+                time_lock_account.token_vault = ctx.accounts.token_vault.key();
+            }
+            
+            // Update amount with overflow check
+            time_lock_account.amount = time_lock_account.amount.checked_add(amount)
+                .ok_or(TimeLockError::ArithmeticOverflow)?;
 
-    msg!("Deposited {} tokens to time-locked wallet", amount);
-    Ok(())
+            msg!("Deposited {} tokens to time-locked wallet", amount);
+            
+            // Emit deposit event
+            emit!(DepositEvent {
+                time_lock_account: time_lock_key,
+                depositor: depositor_key,
+                amount,
+                new_balance: time_lock_account.amount,
+                timestamp: Clock::get()?.unix_timestamp,
+                asset_type: AssetType::Token,
+            });
+            
+            // ✅ End operation
+            time_lock_account.end_operation();
+            Ok(())
+        },
+        Err(e) => {
+            // ✅ End operation on error
+            time_lock_account.end_operation();
+            Err(e.into())
+        }
+    }
 }
