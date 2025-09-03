@@ -1,5 +1,17 @@
 # Time-Locked Wallet Solana Library
 
+📦 **Library tạo time-locked wallet trên Solana** - cho phép người dùng lock SOL/tokens với thời gian unlock định trước.
+
+## 📚 Documentation
+
+📖 **[Complete Documentation](./docs/README.md)**
+
+- 🔍 **[Project Overview](./docs/PROJECT_OVERVIEW.md)** - Tổng quan project và architecture
+- 👨‍💻 **[Developer Report](./docs/DEVELOPER_REPORT.md)** - Báo cáo chi tiết cho developers
+- 🧪 **[Tester Report](./docs/TESTER_REPORT.md)** - Hướng dẫn testing và QA
+
+## ✨ Featurese-Locked Wallet Solana Library
+
 � **Library tạo time-locked wallet trên Solana** - cho phép người dùng lock SOL/tokens với thời gian unlock định trước.
 
 ## ✨ Features
