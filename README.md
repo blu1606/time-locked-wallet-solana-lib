@@ -1,238 +1,374 @@
-# Time-Locked Wallet Solana Library
+# Time-Locke# Time-Locked Wallet Solana Library
 
-📦 **Library tạo time-locked wallet trên Solana** - cho phép người dùng lock SOL/tokens với thời gian unlock định trước.
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](#)
+[![License](https://img.shields.io/badge/license-MIT-blue)](#)
+[![Solana](https://img.shields.io/badge/solana-v1.78.0-purple)](#)
+[![Anchor](https://img.shields.io/badge/anchor-v0.28.0-orange)](#)
 
-## 📚 Documentation
+A comprehensive Solana library for creating time-locked wallets that allows users to lock SOL or SPL tokens with a predefined unlock timestamp. Perfect for vesting schedules, savings plans, or any time-based asset management.
 
-📖 **[Complete Documentation](./docs/README.md)**
+## 🌟 Features
 
-- 🔍 **[Project Overview](./docs/PROJECT_OVERVIEW.md)** - Tổng quan project và architecture
-- 👨‍💻 **[Developer Report](./docs/DEVELOPER_REPORT.md)** - Báo cáo chi tiết cho developers
-- 🧪 **[Tester Report](./docs/TESTER_REPORT.md)** - Hướng dẫn testing và QA
-
-## ✨ Featurese-Locked Wallet Solana Library
-
-� **Library tạo time-locked wallet trên Solana** - cho phép người dùng lock SOL/tokens với thời gian unlock định trước.
-
-## ✨ Features
-
-- 🔐 **Time-locked Wallets**: Lock funds với unlock time tùy chỉnh
-- ⏰ **Flexible Timing**: Support lock từ phút đến năm
-- 🔗 **Solana Integration**: Built với @solana/web3.js và Anchor
-- ⚛️ **React Hooks**: Ready-to-use hooks cho frontend
-- 📦 **Easy Import**: Simple API, easy integration
-- 🛡️ **Type Safe**: Full TypeScript support
+- **🔒 Time-Locked Wallets**: Lock SOL or SPL tokens until a specific timestamp
+- **⏰ Flexible Timing**: Support for any future timestamp (minutes to years)
+- **🛡️ Security**: Built with reentrancy protection and comprehensive error handling
+- **🔗 Solana Native**: Full integration with Solana's architecture using Anchor framework
+- **📦 Developer Friendly**: TypeScript SDK with full type safety
+- **⚛️ React Ready**: Pre-built hooks and components for frontend integration
+- **🧪 Well Tested**: Comprehensive test suite for both devnet and localnet
 
 ## 📁 Project Structure
 
 ```
-├── packages/
-│   └── react/           # React library với hooks và components
-├── examples/
-│   ├── vanilla-js/      # HTML/CSS/JS demo
-│   └── react-vite/      # React + TypeScript demo
+time-locked-wallet-solana-lib/
 ├── programs/
-│   └── time-locked-wallet/  # Solana program (Rust/Anchor)
-└── docs/               # Documentation
+│   └── time-locked-wallet/     # Rust/Anchor Solana program
+│       ├── src/
+│       │   ├── lib.rs          # Main program entry point
+│       │   ├── state.rs        # Account structures
+│       │   ├── instructions/   # Program instructions
+│       │   ├── errors.rs       # Custom error definitions
+│       │   └── events.rs       # Event definitions
+│       └── Cargo.toml
+├── packages/
+│   └── core/                   # TypeScript SDK
+│       ├── src/
+│       │   ├── client.ts       # Main client for production
+│       │   ├── client-demo.ts  # Demo client for testing
+│       │   ├── types.ts        # TypeScript definitions
+│       │   ├── builders.ts     # Transaction builders
+│       │   └── utils/          # Utility functions
+│       └── package.json
+├── target/
+│   ├── idl/                    # Generated IDL files
+│   └── types/                  # Generated TypeScript types
+└── tests/                      # Test suites
+    ├── localnet-test.ts        # Local development tests
+    └── devnet-test.ts          # Devnet integration tests
 ```
 
 ## 🚀 Quick Start
-### 1. Chạy Examples
 
-**Vanilla JS (No setup required):**
-```bash
-cd examples/vanilla-js
-# Mở index.html trong browser
-```
+### Prerequisites
 
-**React + Vite:**
-```bash
-cd examples/react-vite
-npm install
-npm run dev
-```
+- **Node.js**: Version 16+ required
+- **Rust**: Latest stable version
+- **Solana CLI**: Version 1.14+ 
+- **Anchor CLI**: Version 0.28+
+- **Git**: For cloning the repository
 
-### 2. Sử dụng React Library
+### Installation
 
 ```bash
-npm install @solana/web3.js @coral-xyz/anchor
-# Copy packages/react vào project của bạn
-```
+# Clone the repository
+git clone https://github.com/your-org/time-locked-wallet-solana-lib.git
+cd time-locked-wallet-solana-lib
 
-```tsx
-import React from 'react';
-import { TimeLockProvider, useLockCreation, useLockInfo } from './path-to-react-lib';
-
-function App() {
-  return (
-    <TimeLockProvider
-      connection={connection}
-      cluster="devnet"
-    >
-      <LockDemo />
-    </TimeLockProvider>
-  );
-}
-
-function LockDemo() {
-  const { createLock, isLoading } = useLockCreation();
-  const { lockInfo, refresh } = useLockInfo(lockAddress);
-
-  const handleCreateLock = async () => {
-    await createLock({
-      amount: 0.1,
-      unlockTime: new Date(Date.now() + 60000) // 1 minute
-    });
-  };
-
-  return (
-    <div>
-      <button onClick={handleCreateLock} disabled={isLoading}>
-        Create Lock
-      </button>
-      {lockInfo && (
-        <div>
-          <p>Amount: {lockInfo.amount} SOL</p>
-          <p>Unlock: {lockInfo.unlockTime.toLocaleString()}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-```
-
-## 📚 API Reference
-
-### React Hooks
-
-#### `useLockCreation()`
-```tsx
-const { createLock, isLoading, error } = useLockCreation();
-
-await createLock({
-  amount: number,           // SOL amount to lock
-  unlockTime: Date,        // When to unlock
-  assetType?: AssetType    // SOL or custom token
-});
-```
-
-#### `useLockInfo(lockAddress)`
-```tsx
-const { lockInfo, isLoading, error, refresh } = useLockInfo(lockAddress);
-
-// lockInfo structure:
-{
-  owner: string,
-  amount: number,
-  unlockTime: Date,
-  assetType: AssetType,
-  isUnlocked: boolean
-}
-```
-
-#### `useWithdraw(lockAddress)`
-```tsx
-const { withdraw, canWithdraw, isLoading } = useWithdraw(lockAddress);
-
-await withdraw(); // Withdraw when unlocked
-```
-
-### Provider Setup
-
-```tsx
-<TimeLockProvider
-  connection={connection}        // Solana connection
-  cluster="devnet"              // Network cluster  
-  programId={programId}         // Optional: custom program ID
->
-  {children}
-</TimeLockProvider>
-```
-
-## 🛠️ Development
-
-### Setup Development Environment
-
-```bash
 # Install dependencies
 npm install
 
-# Build React library
-cd packages/react
-npm run build
-
-# Run examples
-cd examples/react-vite
-npm install && npm run dev
-```
-
-### Testing với Solana Program
-
-```bash
-# Setup Solana CLI và Anchor
-# Build và deploy program
+# Build the Anchor program
 anchor build
-anchor deploy --provider.cluster devnet
 
-# Update program ID trong examples
+# Run tests (requires Solana test validator)
+anchor test
 ```
 
-## 📖 Examples Deep Dive
+## 💡 How It Works
 
-### Vanilla JS Example
-- **File:** `examples/vanilla-js/index.html`
-- **Features:** Pure HTML/CSS/JS, no build required
-- **Best for:** Quick demos, learning, simple integrations
+### Core Concept
 
-### React Example  
-- **File:** `examples/react-vite/src/App.tsx`
-- **Features:** Modern React, TypeScript, component-based
-- **Best for:** Production apps, complex UIs
+The Time-Locked Wallet uses **Program Derived Addresses (PDAs)** to create secure, deterministic wallet addresses that can only be unlocked after a specified timestamp. Here's the flow:
 
-## 🏗️ Architecture
+1. **Initialize**: Create a time-locked wallet with an unlock timestamp
+2. **Deposit**: Lock SOL or SPL tokens into the wallet  
+3. **Wait**: Funds remain locked until the unlock timestamp
+4. **Withdraw**: Once unlocked, only the owner can withdraw funds
 
-### Frontend (React)
-- **Provider Pattern**: Context cho configuration
-- **Custom Hooks**: Encapsulate blockchain logic
-- **Local Types**: Self-contained, no external deps
-- **Utils**: Formatters và validators
+### Key Components
 
-### Backend (Solana Program)
-- **Anchor Framework**: Modern Solana development
-- **Account Structure**: Efficient state management
-- **Time Validation**: On-chain unlock time checking
-- **Security**: Owner-only withdraw protection
+#### 1. **Solana Program** (`programs/time-locked-wallet/`)
+The on-chain Rust program handles:
+- Wallet initialization with unlock timestamps
+- Secure fund deposits (SOL and SPL tokens)
+- Time-based withdrawal validation
+- PDA-based security model
+
+#### 2. **TypeScript SDK** (`packages/core/`)
+The client library provides:
+- Easy-to-use JavaScript/TypeScript API
+- Transaction building and signing
+- Account data fetching and parsing
+- Error handling and validation
+
+#### 3. **Generated Types** (`target/types/`)
+Auto-generated TypeScript definitions from the Anchor IDL for type safety.
+
+## 📖 Usage Examples
+
+### Basic SOL Time-Lock
+
+```typescript
+import { TimeLockClient, AssetType } from '@time-locked-wallet/core';
+import { Connection, PublicKey } from '@solana/web3.js';
+
+// Initialize client
+const connection = new Connection('https://api.devnet.solana.com');
+const client = new TimeLockClient(connection, wallet);
+
+// Create a time-locked wallet (unlock in 1 hour)
+const unlockTimestamp = Math.floor(Date.now() / 1000) + 3600;
+const result = await client.createSolTimeLock({
+  owner: wallet.publicKey,
+  unlockTimestamp,
+  assetType: AssetType.Sol,
+  amount: 1000000000 // 1 SOL in lamports
+});
+
+console.log('Time-lock created:', result.timeLockAccount.toString());
+console.log('Transaction signature:', result.signature);
+```
+
+### Deposit Additional Funds
+
+```typescript
+// Deposit more SOL to existing time-lock
+await client.depositSol({
+  timeLockAccount: result.timeLockAccount,
+  amount: 500000000 // 0.5 SOL in lamports
+});
+```
+
+### Check Withdrawal Availability
+
+```typescript
+// Check if funds can be withdrawn
+const canWithdraw = await client.canWithdraw(result.timeLockAccount);
+const remainingTime = await client.getRemainingLockTime(result.timeLockAccount);
+
+console.log('Can withdraw:', canWithdraw);
+console.log('Time remaining:', remainingTime, 'seconds');
+```
+
+### Withdraw Funds
+
+```typescript
+// Withdraw funds (only works after unlock time)
+if (canWithdraw) {
+  const signature = await client.withdrawSol({
+    timeLockAccount: result.timeLockAccount,
+    owner: wallet.publicKey
+  });
+  console.log('Withdrawal successful:', signature);
+}
+```
+
+### Working with SPL Tokens
+
+```typescript
+// Create token time-lock
+const tokenResult = await client.createTokenTimeLock({
+  owner: wallet.publicKey,
+  unlockTimestamp: Math.floor(Date.now() / 1000) + 86400, // 24 hours
+  assetType: AssetType.Token
+});
+
+// Deposit tokens
+await client.depositToken({
+  timeLockAccount: tokenResult.timeLockAccount,
+  amount: 1000000, // Token amount (adjust for decimals)
+  tokenFromAta: userTokenAccount,
+  tokenVault: vaultAccount,
+  tokenProgramId: TOKEN_PROGRAM_ID
+});
+```
 
 ## 🔧 Configuration
 
-### Supported Networks
-- ✅ **Devnet** (recommended for testing)
-- ✅ **Testnet** 
-- ✅ **Mainnet** (production)
+### Program ID
 
-### Supported Wallets
-- ✅ **Phantom** (primary)
-- ✅ **Solflare**
-- ✅ **Any wallet-adapter compatible**
+The program is deployed with the following ID:
+```
+899SKikn1WiRBSurKhMZyNCNvYmWXVE6hZFYbFim293g
+```
 
-## 🤝 Contributing
+### Network Configuration
 
-1. Fork repository
-2. Create feature branch
-3. Make changes
-4. Test với examples
-5. Submit PR
+```typescript
+// Devnet
+const connection = new Connection('https://api.devnet.solana.com');
+
+// Mainnet Beta
+const connection = new Connection('https://api.mainnet-beta.solana.com');
+
+// Localnet (for development)
+const connection = new Connection('http://localhost:8899');
+```
+
+## 🧪 Testing
+
+### Run Local Tests
+
+```bash
+# Start local Solana test validator
+solana-test-validator
+
+# In another terminal, run tests
+anchor test --skip-deploy
+```
+
+### Run Devnet Tests
+
+```bash
+# Configure Solana CLI for devnet
+solana config set --url https://api.devnet.solana.com
+
+# Run devnet integration tests
+npm run test:devnet
+```
+
+## 🔒 Security Features
+
+### Reentrancy Protection
+- Operations are protected against reentrancy attacks
+- Uses a processing flag to prevent concurrent operations
+
+### PDA Security
+- All wallets use Program Derived Addresses
+- Deterministic addresses based on owner + timestamp
+- No private key management required
+
+### Time Validation
+- Unlock timestamps must be in the future
+- Clock-based validation using Solana's on-chain clock
+- Protection against time manipulation
+
+### Error Handling
+- Comprehensive error types and messages
+- Input validation on all parameters
+- Clear error reporting for debugging
+
+## 📚 API Reference
+
+### TimeLockClient Methods
+
+#### SOL Operations
+- `createSolTimeLock(params)` - Create new SOL time-lock
+- `depositSol(params)` - Deposit SOL to existing time-lock
+- `withdrawSol(params)` - Withdraw SOL (if unlocked)
+
+#### Token Operations  
+- `createTokenTimeLock(params)` - Create new token time-lock
+- `depositToken(params)` - Deposit tokens to existing time-lock
+- `withdrawToken(params)` - Withdraw tokens (if unlocked)
+
+#### Query Operations
+- `getTimeLockData(account)` - Get time-lock account data
+- `canWithdraw(account)` - Check if withdrawal is available
+- `getRemainingLockTime(account)` - Get seconds until unlock
+
+#### Utility Methods
+- `findTimeLockPDA(owner, timestamp)` - Calculate PDA address
+- `validatePublicKey(key)` - Validate public key format
+- `validateTimestamp(timestamp)` - Validate timestamp format
+- `validateAmount(amount)` - Validate amount format
+
+### Types
+
+```typescript
+interface CreateTimeLockParams {
+  owner: PublicKey;
+  unlockTimestamp: number;
+  assetType: AssetType;
+  amount?: number;
+}
+
+interface DepositParams {
+  timeLockAccount: PublicKey;
+  amount: number;
+  depositor?: PublicKey;
+}
+
+interface WithdrawParams {
+  timeLockAccount: PublicKey;
+  owner: PublicKey;
+}
+
+enum AssetType {
+  Sol = "sol",
+  Token = "token"
+}
+```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**1. InstructionDidNotDeserialize Error**
+```
+Error Code: 102
+```
+- **Cause**: Mismatch between instruction parameters
+- **Solution**: Ensure you're using the latest version and correct parameter types
+
+**2. Custom Program Error: 0x1771**
+```
+Custom program error: 0x1771 (TimeLockNotExpired)
+```
+- **Cause**: Attempting to withdraw before unlock time
+- **Solution**: Wait until unlock timestamp or check `canWithdraw()`
+
+**3. Account Not Found**
+```
+Error: Account not found
+```
+- **Cause**: Time-lock account doesn't exist or incorrect PDA calculation
+- **Solution**: Verify account was created and use correct owner/timestamp
+
+### Getting Help
+
+1. **Check the Tests**: Look at `tests/` directory for working examples
+2. **Enable Debug Logs**: Use `ANCHOR_LOG=debug` for detailed logging
+3. **Verify Network**: Ensure you're connecting to the correct network
+4. **Check Balance**: Ensure sufficient SOL for transaction fees
+
+## 🚧 Development
+
+### Building from Source
+
+```bash
+# Clone and setup
+git clone <repository-url>
+cd time-locked-wallet-solana-lib
+npm install
+
+# Build program
+anchor build
+
+# Generate types
+anchor run test
+
+# Run development server (if using examples)
+cd examples/react-vite
+npm run dev
+```
+
+### Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
 
 ## 📄 License
 
-MIT License - xem `LICENSE` file để biết chi tiết.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🆘 Support
+## 🙏 Acknowledgments
 
-- **Issues**: GitHub Issues
-- **Examples**: Check `examples/` folder
-- **Docs**: `docs/` folder
+- Built with [Anchor Framework](https://project-serum.github.io/anchor/)
+- Inspired by the Solana ecosystem
+- Thanks to the Solana community for feedback and contributions
 
 ---
-
-**Built with ❤️ for Solana ecosystem**
