@@ -52,34 +52,36 @@ pub fn withdraw_sol(ctx: Context<WithdrawSol>) -> Result<()> {
     
     msg!("📊 BALANCE_RESET: Account balances set to 0");
     
-    // 🌐 PHASE 3: INTERACTIONS - External calls last
-    msg!("🌐 TRANSFER_EXECUTION: Executing SOL transfer to owner");
+    // 🌐 PHASE 3: INTERACTIONS - Manual lamports transfer for PDA accounts with data
+    msg!("🌐 TRANSFER_EXECUTION: Executing SOL transfer to owner via lamports manipulation");
     
-    // Prepare signer seeds (fix lifetime issue)
-    let owner_key = ctx.accounts.owner.key();
-    let signer_seeds = &[
-        b"time_lock",
-        owner_key.as_ref(),
-        &time_lock_account.unlock_timestamp.to_le_bytes(),
-        &[time_lock_account.bump],
-    ];
-    let signer = &[&signer_seeds[..]];
-    
-    // Create transfer instruction
-    let transfer_instruction = anchor_lang::system_program::Transfer {
-        from: time_lock_account.to_account_info(),
-        to: ctx.accounts.owner.to_account_info(),
-    };
-    
-    // Execute transfer with PDA signing
-    let result = anchor_lang::system_program::transfer(
-        CpiContext::new_with_signer(
-            ctx.accounts.system_program.to_account_info(),
-            transfer_instruction,
-            signer,
-        ),
-        amount_to_transfer,
-    );
+    // Manual lamports transfer (required for accounts with data)
+    let result = (|| -> Result<()> {
+        // Get current lamports
+        let time_lock_lamports = time_lock_account.to_account_info().lamports();
+        let owner_lamports = ctx.accounts.owner.to_account_info().lamports();
+        
+        msg!("📊 BEFORE_TRANSFER: PDA={} lamports, Owner={} lamports", 
+             time_lock_lamports, owner_lamports);
+        
+        // Ensure we have enough lamports (including rent exempt amount)
+        let rent_exempt_amount = Rent::get()?.minimum_balance(
+            time_lock_account.to_account_info().data_len()
+        );
+        
+        let available_lamports = time_lock_lamports.saturating_sub(rent_exempt_amount);
+        require!(
+            available_lamports >= amount_to_transfer,
+            TimeLockError::InsufficientFunds
+        );
+        
+        // Perform manual lamports transfer
+        **time_lock_account.to_account_info().try_borrow_mut_lamports()? -= amount_to_transfer;
+        **ctx.accounts.owner.to_account_info().try_borrow_mut_lamports()? += amount_to_transfer;
+        
+        msg!("✅ LAMPORTS_TRANSFERRED: {} lamports moved to owner", amount_to_transfer);
+        Ok(())
+    })();
     
     // 🔓 Always reset reentrancy guard (regardless of success/failure)
     time_lock_account.end_operation();

@@ -13,11 +13,14 @@ pub enum TimeLockError {
     #[msg("INSUFFICIENT_BALANCE: Account balance too low for withdrawal")]
     InsufficientBalance = 1101,
     
+    #[msg("INSUFFICIENT_FUNDS: Not enough lamports for this operation")]
+    InsufficientFunds = 1102,
+    
     #[msg("INVALID_AMOUNT: Amount must be greater than zero")]
-    InvalidAmount = 1102,
+    InvalidAmount = 1103,
     
     #[msg("ACCOUNT_NOT_EMPTY: Cannot close account with remaining funds")]
-    AccountNotEmpty = 1103,
+    AccountNotEmpty = 1104,
     
     // === ASSET TYPE ERRORS (1200-1299) ===
     #[msg("INVALID_ASSET_TYPE: Operation not supported for this asset type")]
