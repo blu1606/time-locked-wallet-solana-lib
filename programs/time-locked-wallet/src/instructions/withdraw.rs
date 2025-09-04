@@ -26,6 +26,24 @@ pub struct WithdrawSol<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+pub struct WithdrawAndCloseSol<'info> {
+    #[account(
+        mut, 
+        seeds = [b"time_lock", owner.key().as_ref(), &time_lock_account.unlock_timestamp.to_le_bytes()],
+        bump = time_lock_account.bump,
+        has_one = owner @ TimeLockError::Unauthorized,
+        constraint = time_lock_account.asset_type == AssetType::Sol @ TimeLockError::InvalidAssetType,
+        close = owner
+    )]
+    pub time_lock_account: Account<'info, TimeLockAccount>,
+    
+    #[account(mut)]
+    pub owner: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
 pub fn withdraw_sol(ctx: Context<WithdrawSol>) -> Result<()> {
     let time_lock_account = &mut ctx.accounts.time_lock_account;
     
@@ -81,6 +99,75 @@ pub fn withdraw_sol(ctx: Context<WithdrawSol>) -> Result<()> {
         },
         Err(e) => {
             critical_msg!("Withdrawal failed, rolling back: {:?}", e);
+            time_lock_account.sol_balance = amount_to_transfer;
+            time_lock_account.amount = amount_to_transfer;
+            Err(e.into())
+        }
+    }
+}
+
+pub fn withdraw_and_close_sol(ctx: Context<WithdrawAndCloseSol>) -> Result<()> {
+    let time_lock_account = &mut ctx.accounts.time_lock_account;
+    
+    debug_msg!("Withdrawal and closure initiated for account: {}", ctx.accounts.time_lock_account.key());
+    
+    time_lock_account.start_operation_with_monitoring(ctx.accounts.owner.key())?;
+    time_lock_account.validate_sol_withdrawal()?;
+    
+    let amount_to_transfer = time_lock_account.sol_balance;
+    require!(amount_to_transfer > 0, TimeLockError::InsufficientBalance);
+    
+    // Calculate rent that will be refunded
+    let rent_refund = Rent::get()?.minimum_balance(
+        time_lock_account.to_account_info().data_len()
+    );
+    
+    debug_msg!("Withdrawal: {} lamports, Rent refund: {} lamports", 
+               amount_to_transfer, rent_refund);
+    
+    // Set balance to 0 before transfer
+    time_lock_account.sol_balance = 0;
+    time_lock_account.amount = 0;
+    
+    let result = (|| -> Result<()> {
+        let account_info = time_lock_account.to_account_info();
+        let current_lamports = account_info.lamports();
+        
+        // Ensure we have enough lamports for both withdrawal and rent
+        require!(
+            current_lamports >= amount_to_transfer + rent_refund,
+            TimeLockError::InsufficientFunds
+        );
+        
+        // Transfer withdrawal amount to owner
+        **account_info.try_borrow_mut_lamports()? -= amount_to_transfer;
+        **ctx.accounts.owner.to_account_info().try_borrow_mut_lamports()? += amount_to_transfer;
+        
+        Ok(())
+    })();
+    
+    time_lock_account.end_operation();
+    
+    match result {
+        Ok(_) => {
+            event_msg!("Withdrawal and closure completed: {} lamports + {} rent to {}", 
+                      amount_to_transfer, rent_refund, ctx.accounts.owner.key());
+            
+            emit!(WithdrawalEvent {
+                time_lock_account: ctx.accounts.time_lock_account.key(),
+                owner: ctx.accounts.owner.key(),
+                recipient: ctx.accounts.owner.key(),
+                amount: amount_to_transfer,
+                remaining_balance: 0,
+                timestamp: Clock::get()?.unix_timestamp,
+                asset_type: AssetType::Sol,
+            });
+            
+            // Account will be automatically closed by Anchor and rent refunded
+            Ok(())
+        },
+        Err(e) => {
+            critical_msg!("Withdrawal and closure failed, rolling back: {:?}", e);
             time_lock_account.sol_balance = amount_to_transfer;
             time_lock_account.amount = amount_to_transfer;
             Err(e.into())

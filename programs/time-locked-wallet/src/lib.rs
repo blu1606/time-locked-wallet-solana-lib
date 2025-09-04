@@ -8,7 +8,6 @@ pub mod utils;
 
 use instructions::*;
 use state::AssetType;
-pub use utils::logging::*;
 
 declare_id!("899SKikn1WiRBSurKhMZyNCNvYmWXVE6hZFYbFim293g");
 
@@ -41,10 +40,31 @@ pub mod time_locked_wallet {
         instructions::withdraw_sol(ctx)
     }
 
+    // Withdraws SOL and closes the account, refunding rent to owner
+    pub fn withdraw_and_close_sol(ctx: Context<WithdrawAndCloseSol>) -> Result<()> {
+        instructions::withdraw_and_close_sol(ctx)
+    }
+
     // Withdraws SPL tokens from the time-locked wallet
     // This instruction is only successful if the unlock_timestamp has passed
     pub fn withdraw_token(ctx: Context<WithdrawToken>) -> Result<()> {
         instructions::withdraw_token(ctx)
+    }
+
+    // Closes an empty time-locked account and refunds rent to owner
+    pub fn close_empty_account(ctx: Context<CloseEmptyAccount>) -> Result<()> {
+        instructions::close_empty_account(ctx)
+    }
+
+    // Closes a token time-locked account and associated vault, refunding rent
+    pub fn close_token_account(ctx: Context<CloseTokenAccount>) -> Result<()> {
+        instructions::close_token_account(ctx)
+    }
+
+    // Force closes an expired account (cleanup mechanism)
+    // Can be called by anyone after 1 year past expiration
+    pub fn force_close_expired(ctx: Context<ForceCloseExpired>) -> Result<()> {
+        instructions::force_close_expired(ctx)
     }
 
     // View function to get wallet info without modifying state

@@ -1,5 +1,3 @@
-use anchor_lang::prelude::*;
-
 /// Conditional logging based on build configuration
 /// Only logs in debug builds to reduce compute cost in production
 #[macro_export]

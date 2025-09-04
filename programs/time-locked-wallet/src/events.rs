@@ -62,3 +62,13 @@ pub struct AccountClosed {
     pub owner: Pubkey,
     pub timestamp: i64,
 }
+
+// === ENHANCED CLOSURE EVENTS ===
+#[event]
+pub struct AccountClosureEvent {
+    pub time_lock_account: Pubkey,
+    pub owner: Pubkey,
+    pub rent_refunded: u64,
+    pub timestamp: i64,
+    pub closure_reason: String,
+}
