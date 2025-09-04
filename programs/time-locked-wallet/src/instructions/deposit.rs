@@ -118,9 +118,12 @@ pub struct DepositToken<'info> {
     #[account(mut)]
     pub initializer: Signer<'info>,
 
+    /// CHECK: Token mint account
+    pub mint: AccountInfo<'info>,
+
     #[account(
         mut,
-        associated_token::mint = token_from_ata.mint,
+        associated_token::mint = mint,
         associated_token::authority = initializer,
     )]
     pub token_from_ata: Account<'info, TokenAccount>,
@@ -128,7 +131,7 @@ pub struct DepositToken<'info> {
     #[account(
         init_if_needed,
         payer = initializer,
-        associated_token::mint = token_from_ata.mint,
+        associated_token::mint = mint,
         associated_token::authority = time_lock_account,
     )]
     pub token_vault: Account<'info, TokenAccount>,
