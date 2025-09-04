@@ -1,0 +1,3 @@
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/nxc1802/Frontend-Time-Lock-Wallet-Blockchain.git
