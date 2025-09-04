@@ -1,46 +1,88 @@
-# Getting Started with Create React App
+# Time-Locked Wallet Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A modern React/TypeScript frontend application for creating time-locked wallets on Solana. This application allows users to lock their own SOL and SPL tokens with a specific unlock time, ensuring funds can only be withdrawn after the lock period expires.
 
-## Available Scripts
+## 🚀 Features
 
-In the project directory, you can run:
+- **Self-Locking Wallets**: Lock your own tokens with custom unlock timestamps
+- **Multi-Asset Support**: Support for SOL and SPL tokens (USDC)
+- **Tabbed Dashboard**: Easy switching between locked, ready to withdraw, and completed transactions
+- **Wallet Integration**: Connect with Phantom, Solflare, and other Solana wallets
+- **Dark Mode**: Beautiful dark/light theme toggle (default dark)
+- **Responsive Design**: Mobile-first design with Tailwind CSS
+- **Devnet Airdrop**: Request SOL and USDC from devnet faucet
+- **Production Ready**: Optimized build with proper error handling
 
-### `npm start`
+## 🛠 Tech Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+- **React 19.1.1** with TypeScript
+- **Tailwind CSS** for styling
+- **@solana/wallet-adapter-react** for wallet integration
+- **@coral-xyz/anchor** for blockchain interaction
+- **react-hot-toast** for notifications
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## 📦 Installation
 
-### `npm test`
+```bash
+# Install dependencies
+npm install
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+# Start development server
+npm start
 
-### `npm run build`
+# Build for production
+npm run build
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## 🔧 Configuration
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+The application is configured to work with:
+- **Network**: Solana Devnet
+- **Program ID**: `899SKikn1WiRBSurKhMZyNCNvYmWXVE6hZFYbFim293g`
+- **Supported Wallets**: Phantom, Solflare, Torus
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## 📱 Usage
 
-### `npm run eject`
+1. **Connect Wallet**: Click the wallet button to connect your Solana wallet
+2. **Create Time-Locked Wallet**: 
+   - Select lock type (self-lock with beautiful selector)
+   - Select asset type (SOL/USDC)
+   - Enter amount to lock
+   - Set unlock date/time
+   - Confirm transaction
+3. **View Dashboard**: Switch between tabs to monitor locked, ready to withdraw, and completed transactions
+4. **Withdraw**: Withdraw funds when lock period expires
+5. **Airdrop**: Request SOL/USDC from devnet faucet for testing
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+## 🏗 Project Structure
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```
+src/
+├── components/          # Reusable UI components
+├── contexts/           # React contexts (Wallet, Program)
+├── pages/              # Main application pages
+├── services/           # Business logic services
+├── types/              # TypeScript definitions
+└── utils/              # Utility functions
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+## 🔒 Security Features
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+- **Time Validation**: Prevents early withdrawals
+- **Owner Verification**: Only wallet owner can withdraw
+- **Transaction Signing**: All transactions require wallet approval
+- **Error Handling**: Comprehensive error boundaries and user feedback
 
-## Learn More
+## 🚀 Deployment
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```bash
+# Build for production
+npm run build
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+# Serve the build
+npx serve -s build
+```
+
+## 📄 License
+
+This project is part of a blockchain development portfolio and is for educational purposes.

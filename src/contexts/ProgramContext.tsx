@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { PublicKey, SystemProgram } from '@solana/web3.js';
 import { Program, AnchorProvider, Idl, BN } from '@coral-xyz/anchor';
-import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
+import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
 
 import IDL from '../time_locked_wallet.json';
 import { 
@@ -44,7 +44,7 @@ export const ProgramProvider: React.FC<ProgramProviderProps> = ({ children }) =>
     );
     
     return new Program(IDL as Idl, provider);
-  }, [connection, wallet.publicKey, wallet.signTransaction]);
+  }, [connection, wallet]);
 
   // Get time lock PDA
   const getTimeLockPDA = (owner: PublicKey, unlockTimestamp: number): [PublicKey, number] => {
@@ -63,7 +63,7 @@ export const ProgramProvider: React.FC<ProgramProviderProps> = ({ children }) =>
       throw new Error('Wallet not connected or program not initialized');
     }
 
-    const [timeLockAccount, bump] = getTimeLockPDA(wallet.publicKey, params.unlockTimestamp);
+    const [timeLockAccount] = getTimeLockPDA(wallet.publicKey, params.unlockTimestamp);
 
     const tx = await program.methods
       .initialize(new BN(params.unlockTimestamp), { [params.assetType.toLowerCase()]: {} })
@@ -130,6 +130,36 @@ export const ProgramProvider: React.FC<ProgramProviderProps> = ({ children }) =>
   const withdrawSol = async (timeLockAccount: PublicKey): Promise<string> => {
     if (!program || !wallet.publicKey) {
       throw new Error('Wallet not connected or program not initialized');
+    }
+
+    console.log('=== WITHDRAWAL DEBUG ===');
+    console.log('TimeLock Account:', timeLockAccount.toBase58());
+    console.log('Owner:', wallet.publicKey.toBase58());
+    
+    // Check if account exists and get its data
+    let accountInfo;
+    try {
+      accountInfo = await (program.account as any).timeLockAccount.fetch(timeLockAccount);
+      console.log('Account exists:', !!accountInfo);
+      console.log('Account data:', {
+        owner: accountInfo.owner.toBase58(),
+        unlockTimestamp: accountInfo.unlockTimestamp.toNumber(),
+        assetType: accountInfo.assetType,
+        amount: accountInfo.amount.toNumber(),
+        isUnlocked: Date.now() / 1000 > accountInfo.unlockTimestamp.toNumber()
+      });
+    } catch (error) {
+      console.error('Failed to fetch account:', error);
+      throw new Error('Account not found or invalid');
+    }
+
+    // Verify PDA derivation
+    const [expectedPDA] = getTimeLockPDA(accountInfo.owner, accountInfo.unlockTimestamp.toNumber());
+    console.log('Expected PDA:', expectedPDA.toBase58());
+    console.log('PDA matches:', expectedPDA.equals(timeLockAccount));
+    
+    if (!expectedPDA.equals(timeLockAccount)) {
+      throw new Error('PDA derivation mismatch - account may be corrupted');
     }
 
     const tx = await program.methods
@@ -207,19 +237,18 @@ export const ProgramProvider: React.FC<ProgramProviderProps> = ({ children }) =>
     }
 
     try {
-      // Fetch all time lock accounts for this user
-      const accounts = await (program.account as any).timeLockAccount.all([
-        {
-          memcmp: {
-            offset: 8, // Skip discriminator
-            bytes: userPublicKey.toBase58(),
-          },
-        },
-      ]);
+      // Get all time-lock accounts and filter by owner
+      const allAccounts = await (program.account as any).timeLockAccount.all();
+      
+      // Filter accounts where the user is the owner
+      const userAccounts = allAccounts.filter((account: any) => {
+        const owner = account.account.owner;
+        return owner.equals(userPublicKey);
+      });
 
       const timeLockData: TimeLockData[] = [];
 
-      for (const account of accounts) {
+      for (const account of userAccounts) {
         try {
           // Get wallet info for each account
           const walletInfo = await getWalletInfo(account.publicKey);
@@ -237,7 +266,6 @@ export const ProgramProvider: React.FC<ProgramProviderProps> = ({ children }) =>
             walletInfo,
           });
         } catch (error) {
-          console.warn('Failed to get wallet info for account:', account.publicKey.toBase58(), error);
           // Still include the account even if wallet info fails
           timeLockData.push({
             publicKey: account.publicKey,
@@ -255,7 +283,6 @@ export const ProgramProvider: React.FC<ProgramProviderProps> = ({ children }) =>
 
       return timeLockData;
     } catch (error) {
-      console.error('Error fetching user time locks:', error);
       return [];
     }
   };

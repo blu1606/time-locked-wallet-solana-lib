@@ -56,7 +56,7 @@ const Countdown: React.FC<CountdownProps> = ({
         compact ? 'text-sm' : 'text-base',
         className
       )}>
-        Đã có thể rút tiền
+        Ready to withdraw
       </div>
     );
   }
@@ -73,13 +73,13 @@ const Countdown: React.FC<CountdownProps> = ({
   }
 
   return (
-    <div className={classNames('flex space-x-4', className)}>
+    <div className={classNames('flex space-x-4 justify-center', className)}>
       <div className="text-center">
         <div className="text-2xl font-bold text-gray-900 dark:text-white">
           {timeLeft.days}
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-          Ngày
+          Days
         </div>
       </div>
       <div className="text-center">
@@ -87,7 +87,7 @@ const Countdown: React.FC<CountdownProps> = ({
           {String(timeLeft.hours).padStart(2, '0')}
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-          Giờ
+          Hours
         </div>
       </div>
       <div className="text-center">
@@ -95,7 +95,7 @@ const Countdown: React.FC<CountdownProps> = ({
           {String(timeLeft.minutes).padStart(2, '0')}
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-          Phút
+          Minutes
         </div>
       </div>
       <div className="text-center">
@@ -103,7 +103,7 @@ const Countdown: React.FC<CountdownProps> = ({
           {String(timeLeft.seconds).padStart(2, '0')}
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-          Giây
+          Seconds
         </div>
       </div>
     </div>

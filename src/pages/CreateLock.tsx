@@ -1,46 +1,39 @@
 import React, { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import toast from 'react-hot-toast';
 
-import { useProgramContext } from '../contexts/ProgramContext';
-import { AssetType } from '../types';
+import { TokenService } from '../services/tokenService';
+import { LockTypeService } from '../services/lockTypeService';
+import { useTimeLock } from '../hooks/useTimeLock';
 import { 
   Button, 
   Card, 
   NumberInput, 
   TokenSelector, 
+  LockTypeSelector,
   DateTimePicker, 
   Token 
 } from '../components';
+import { LockType } from '../components/LockTypeSelector';
 
-// Available tokens (in real app, fetch from token list)
-const AVAILABLE_TOKENS: Token[] = [
-  {
-    symbol: 'SOL',
-    name: 'Solana',
-    decimals: 9,
-    logoUrl: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png'
-  },
-  {
-    symbol: 'USDC',
-    name: 'USD Coin',
-    mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-    decimals: 6,
-    logoUrl: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png'
-  },
-];
+interface CreateLockProps {
+  onNavigateToDashboard?: () => void;
+}
 
-const CreateLock: React.FC = () => {
-  const { connected, publicKey } = useWallet();
-  const { initialize, depositSol, getTimeLockPDA } = useProgramContext();
+const CreateLock: React.FC<CreateLockProps> = ({ onNavigateToDashboard }) => {
+  const { connected } = useWallet();
+  const { createTimeLock, isLoading } = useTimeLock();
 
   // Form state
-  const [selectedToken, setSelectedToken] = useState<Token>(AVAILABLE_TOKENS[0]);
+  const [selectedToken, setSelectedToken] = useState<Token>(TokenService.getSolToken());
+  const availableTokens = TokenService.getDefaultTokens();
+  const [selectedLockType, setSelectedLockType] = useState<LockType>(LockTypeService.getSelfLockType());
+  const availableLockTypes = LockTypeService.getDefaultLockTypes();
   const [amount, setAmount] = useState('');
   const [unlockDateTime, setUnlockDateTime] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [recipientAddress, setRecipientAddress] = useState('');
 
   // Get current datetime in local timezone for min attribute
   const now = new Date();
@@ -49,75 +42,43 @@ const CreateLock: React.FC = () => {
     .slice(0, 16);
 
   const handleCreateLock = async () => {
-    if (!connected || !publicKey) {
-      toast.error('Vui lòng kết nối ví trước');
+    if (!connected) {
+      toast.error('Please connect your wallet');
       return;
     }
 
     if (!amount || !unlockDateTime) {
-      toast.error('Vui lòng điền đầy đủ thông tin');
+      toast.error('Please fill in all fields');
       return;
     }
 
-    const unlockTimestamp = Math.floor(new Date(unlockDateTime).getTime() / 1000);
-    const currentTimestamp = Math.floor(Date.now() / 1000);
-
-    if (unlockTimestamp <= currentTimestamp) {
-      toast.error('Thời gian mở khóa phải ở tương lai');
-      return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-      const assetType = selectedToken.symbol === 'SOL' ? AssetType.Sol : AssetType.Token;
-      
-      // Step 1: Initialize time lock account
-      toast.loading('Đang khởi tạo time-lock wallet...', { id: 'create-lock' });
-      
-      const { publicKey: timeLockAccount, signature: initSignature } = await initialize({
-        unlockTimestamp,
-        assetType,
-      });
-
-      toast.loading('Đang gửi tiền vào time-lock wallet...', { id: 'create-lock' });
-
-      // Step 2: Deposit funds
-      if (selectedToken.symbol === 'SOL') {
-        const amountInLamports = Math.floor(parseFloat(amount) * LAMPORTS_PER_SOL);
-        
-        const depositSignature = await depositSol({
-          amount: amountInLamports,
-          timeLockAccount,
-        });
-
-        toast.success(
-          `Đã tạo time-lock thành công!\n` +
-          `Số tiền: ${amount} SOL\n` +
-          `Mở khóa: ${new Date(unlockDateTime).toLocaleString('vi-VN')}`,
-          { 
-            id: 'create-lock',
-            duration: 5000 
-          }
-        );
-
-        console.log('Initialize TX:', initSignature);
-        console.log('Deposit TX:', depositSignature);
-        console.log('Time Lock Account:', timeLockAccount.toBase58());
-      } else {
-        // TODO: Handle token deposits
-        toast.error('Gửi token chưa được hỗ trợ trong demo này', { id: 'create-lock' });
+    // For send-to-others, validate recipient address
+    if (selectedLockType.id === 'send-to-others') {
+      if (!recipientAddress.trim()) {
+        toast.error('Please enter recipient address');
+        return;
       }
 
-      // Reset form
+      try {
+        new PublicKey(recipientAddress);
+      } catch (error) {
+        toast.error('Invalid recipient address');
+        return;
+      }
+    }
+
+    const result = await createTimeLock(amount, unlockDateTime, selectedToken, selectedLockType.id === 'send-to-others' ? recipientAddress : undefined);
+    
+    if (result.success) {
+      // Reset form on success
       setAmount('');
       setUnlockDateTime('');
+      setRecipientAddress('');
       
-    } catch (error: any) {
-      console.error('Error creating lock:', error);
-      toast.error(`Lỗi: ${error.message || 'Không thể tạo time-lock'}`, { id: 'create-lock' });
-    } finally {
-      setIsLoading(false);
+      // Navigate to dashboard to see the new payment
+      if (onNavigateToDashboard) {
+        onNavigateToDashboard();
+      }
     }
   };
 
@@ -126,30 +87,59 @@ const CreateLock: React.FC = () => {
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Tạo Time-Locked Wallet
+            Create Time-Locked Wallet
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Khóa tiền của bạn với thời gian mở khóa cụ thể
+            Lock your tokens with a specific unlock time
           </p>
         </div>
 
         {!connected ? (
           <Card className="text-center" padding="lg">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-              Kết nối ví để bắt đầu
+              Connect wallet to get started
             </h3>
             <WalletMultiButton />
           </Card>
         ) : (
           <Card padding="lg">
             <div className="space-y-6">
+              {/* Lock Type Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Lock Type
+                </label>
+                <LockTypeSelector
+                  lockTypes={availableLockTypes}
+                  selectedLockType={selectedLockType}
+                  onLockTypeSelect={setSelectedLockType}
+                />
+              </div>
+
+              {/* Recipient Address - Only show for send-to-others */}
+              {selectedLockType.id === 'send-to-others' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Recipient Address
+                  </label>
+                  <input
+                    type="text"
+                    value={recipientAddress}
+                    onChange={(e) => setRecipientAddress(e.target.value)}
+                    placeholder="Enter recipient's Solana address"
+                    disabled
+                    className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 shadow-sm transition-colors duration-200 sm:text-sm py-3 px-4 cursor-not-allowed"
+                  />
+                </div>
+              )}
+
               {/* Token Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Loại tài sản
+                  Asset Type
                 </label>
                 <TokenSelector
-                  tokens={AVAILABLE_TOKENS}
+                  tokens={availableTokens}
                   selectedToken={selectedToken}
                   onTokenSelect={setSelectedToken}
                 />
@@ -157,7 +147,7 @@ const CreateLock: React.FC = () => {
 
               {/* Amount Input */}
               <NumberInput
-                label="Số lượng"
+                label="Amount"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 suffix={selectedToken.symbol}
@@ -167,7 +157,7 @@ const CreateLock: React.FC = () => {
 
               {/* Unlock Time */}
               <DateTimePicker
-                label="Thời gian mở khóa"
+                label="Unlock Time"
                 value={unlockDateTime}
                 onChange={setUnlockDateTime}
                 min={localDateTime}
@@ -177,15 +167,21 @@ const CreateLock: React.FC = () => {
               {amount && unlockDateTime && (
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
                   <h4 className="font-medium text-gray-900 dark:text-white mb-2">
-                    Xem trước
+                    Preview
                   </h4>
                   <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                    <p>Số tiền khóa: <span className="font-medium">{amount} {selectedToken.symbol}</span></p>
-                    <p>Thời gian mở khóa: <span className="font-medium">
-                      {new Date(unlockDateTime).toLocaleString('vi-VN')}
+                    <p>Lock Type: <span className="font-medium">
+                      {selectedLockType.name}
                     </span></p>
-                    <p>Thời gian khóa: <span className="font-medium">
-                      {Math.floor((new Date(unlockDateTime).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} ngày
+                    {selectedLockType.id === 'send-to-others' && recipientAddress && (
+                      <p>Recipient: <span className="font-medium">{recipientAddress.slice(0, 8)}...{recipientAddress.slice(-8)}</span></p>
+                    )}
+                    <p>Amount: <span className="font-medium">{amount} {selectedToken.symbol}</span></p>
+                    <p>Unlock Time: <span className="font-medium">
+                      {unlockDateTime.replace('T', ' ')} (Vietnam Time)
+                    </span></p>
+                    <p>Lock Duration: <span className="font-medium">
+                      {Math.floor((new Date(unlockDateTime).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days
                     </span></p>
                   </div>
                 </div>
@@ -195,24 +191,24 @@ const CreateLock: React.FC = () => {
               <Button
                 onClick={handleCreateLock}
                 loading={isLoading}
-                disabled={!amount || !unlockDateTime}
+                disabled={!amount || !unlockDateTime || (selectedLockType.id === 'send-to-others' && !recipientAddress)}
                 fullWidth
                 size="lg"
                 variant="primary"
               >
-                Tạo Time-Lock Wallet
+                Create Time-Locked Wallet
               </Button>
 
               {/* Info */}
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
-                  ℹ️ Lưu ý quan trọng
+                  ℹ️ Important Notes
                 </h4>
                 <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                  <li>• Sau khi tạo, bạn không thể rút tiền cho đến khi hết thời gian khóa</li>
-                  <li>• Chỉ có bạn mới có thể rút tiền từ wallet này</li>
-                  <li>• Giao dịch sẽ được thực hiện trên Solana devnet</li>
-                  <li>• Lưu lại địa chỉ time-lock account để theo dõi</li>
+                  <li>• Tokens will be locked until the specified unlock time</li>
+                  <li>• Only you can withdraw from this time-lock when unlocked</li>
+                  <li>• Transaction will be executed on Solana devnet</li>
+                  <li>• Save the time-lock account address for tracking</li>
                 </ul>
               </div>
             </div>

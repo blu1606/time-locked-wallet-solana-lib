@@ -3,13 +3,14 @@ import { Toaster } from 'react-hot-toast';
 
 import WalletContextProvider from './contexts/WalletContext';
 import ProgramProvider from './contexts/ProgramContext';
-import { Navigation } from './components';
+import { Navigation, ErrorBoundary } from './components';
 import CreateLock from './pages/CreateLock';
 import Dashboard from './pages/Dashboard';
+import Airdrop from './pages/Airdrop';
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<'create' | 'dashboard'>('create');
-  const [darkMode, setDarkMode] = useState(false);
+  const [currentPage, setCurrentPage] = useState<'create' | 'dashboard' | 'airdrop'>('dashboard');
+  const [darkMode, setDarkMode] = useState(true);
 
   // Initialize dark mode from localStorage
   useEffect(() => {
@@ -17,8 +18,8 @@ function App() {
     if (savedDarkMode) {
       setDarkMode(JSON.parse(savedDarkMode));
     } else {
-      // Default to system preference
-      setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
+      // Default to dark mode
+      setDarkMode(true);
     }
   }, []);
 
@@ -39,56 +40,60 @@ function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'create':
-        return <CreateLock />;
+        return <CreateLock onNavigateToDashboard={() => setCurrentPage('dashboard')} />;
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard onNavigateToCreate={() => setCurrentPage('create')} />;
+      case 'airdrop':
+        return <Airdrop />;
       default:
-        return <CreateLock />;
+        return <CreateLock onNavigateToDashboard={() => setCurrentPage('dashboard')} />;
     }
   };
 
   return (
-    <WalletContextProvider>
-      <ProgramProvider>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-          <Navigation
-            currentPage={currentPage}
-            onPageChange={setCurrentPage}
-            darkMode={darkMode}
-            onToggleDarkMode={toggleDarkMode}
-          />
-          
-          <main>
-            {renderPage()}
-          </main>
+    <ErrorBoundary>
+      <WalletContextProvider>
+        <ProgramProvider>
+          <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+            <Navigation
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              darkMode={darkMode}
+              onToggleDarkMode={toggleDarkMode}
+            />
+            
+            <main>
+              {renderPage()}
+            </main>
 
-          {/* Toast notifications */}
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: darkMode ? '#374151' : '#ffffff',
-                color: darkMode ? '#ffffff' : '#000000',
-                border: darkMode ? '1px solid #4b5563' : '1px solid #e5e7eb',
-              },
-              success: {
-                iconTheme: {
-                  primary: '#10b981',
-                  secondary: '#ffffff',
+            {/* Toast notifications */}
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  background: darkMode ? '#374151' : '#ffffff',
+                  color: darkMode ? '#ffffff' : '#000000',
+                  border: darkMode ? '1px solid #4b5563' : '1px solid #e5e7eb',
                 },
-              },
-              error: {
-                iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#ffffff',
+                success: {
+                  iconTheme: {
+                    primary: '#10b981',
+                    secondary: '#ffffff',
+                  },
                 },
-              },
-            }}
-          />
-        </div>
-      </ProgramProvider>
-    </WalletContextProvider>
+                error: {
+                  iconTheme: {
+                    primary: '#ef4444',
+                    secondary: '#ffffff',
+                  },
+                },
+              }}
+            />
+          </div>
+        </ProgramProvider>
+      </WalletContextProvider>
+    </ErrorBoundary>
   );
 }
 

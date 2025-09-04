@@ -47,13 +47,13 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
             type="text"
             inputMode="decimal"
             className={classNames(
-              'block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm transition-colors duration-200',
-              'focus:border-primary-500 focus:ring-primary-500 dark:focus:border-primary-400 dark:focus:ring-primary-400',
+              'block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm transition-colors duration-200',
+              'focus:border-primary-500 focus:ring-1 focus:ring-primary-500 dark:focus:border-primary-400 dark:focus:ring-primary-400',
               'placeholder-gray-400 dark:placeholder-gray-500',
               error && 'border-red-300 dark:border-red-600 focus:border-red-500 focus:ring-red-500',
               prefix && 'pl-10',
               suffix && 'pr-12',
-              'sm:text-sm',
+              'sm:text-sm py-3 px-4',
               className
             )}
             {...props}

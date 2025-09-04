@@ -4,6 +4,8 @@ export { default as TokenSelector } from './TokenSelector';
 export { default as Countdown } from './Countdown';
 export { default as DateTimePicker } from './DateTimePicker';
 export { default as Card } from './Card';
+export { default as ErrorBoundary } from './ErrorBoundary';
+export { default as LockTypeSelector } from './LockTypeSelector';
 export { default as Modal } from './Modal';
 export { default as Navigation } from './Navigation';
 export type { Token } from './TokenSelector';

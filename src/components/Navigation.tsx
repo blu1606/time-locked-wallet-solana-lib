@@ -4,8 +4,8 @@ import { SunIcon, MoonIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/out
 import { classNames } from '../utils/classNames';
 
 interface NavigationProps {
-  currentPage: 'create' | 'dashboard';
-  onPageChange: (page: 'create' | 'dashboard') => void;
+  currentPage: 'create' | 'dashboard' | 'airdrop';
+  onPageChange: (page: 'create' | 'dashboard' | 'airdrop') => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
 }
@@ -19,8 +19,9 @@ const Navigation: React.FC<NavigationProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navigation = [
-    { name: 'Tạo Time-Lock', key: 'create' as const },
     { name: 'Dashboard', key: 'dashboard' as const },
+    { name: 'Create Lock', key: 'create' as const },
+    { name: 'Airdrop', key: 'airdrop' as const },
   ];
 
   return (
@@ -31,7 +32,7 @@ const Navigation: React.FC<NavigationProps> = ({
             {/* Logo */}
             <div className="flex-shrink-0 flex items-center">
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                🔒 Time-Locked Wallet
+                Time-Locked Payments
               </h1>
             </div>
 
