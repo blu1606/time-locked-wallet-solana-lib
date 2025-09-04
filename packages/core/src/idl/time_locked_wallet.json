@@ -666,34 +666,174 @@
       ]
     }
   ],
+  "events": [
+    {
+      "name": "AccountClosed",
+      "discriminator": [
+        19,
+        250,
+        79,
+        236,
+        91,
+        80,
+        148,
+        48
+      ]
+    },
+    {
+      "name": "DepositEvent",
+      "discriminator": [
+        120,
+        248,
+        61,
+        83,
+        31,
+        142,
+        107,
+        144
+      ]
+    },
+    {
+      "name": "ReentrancyDetected",
+      "discriminator": [
+        25,
+        143,
+        178,
+        242,
+        38,
+        76,
+        230,
+        198
+      ]
+    },
+    {
+      "name": "TimeLockCreated",
+      "discriminator": [
+        172,
+        250,
+        20,
+        89,
+        65,
+        71,
+        100,
+        133
+      ]
+    },
+    {
+      "name": "ValidationFailed",
+      "discriminator": [
+        218,
+        220,
+        25,
+        35,
+        230,
+        235,
+        133,
+        32
+      ]
+    },
+    {
+      "name": "WithdrawalEvent",
+      "discriminator": [
+        161,
+        53,
+        185,
+        18,
+        98,
+        254,
+        54,
+        165
+      ]
+    }
+  ],
   "errors": [
     {
-      "code": 6000,
-      "name": "WithdrawalTooEarly",
-      "msg": "Withdrawal is not yet available. The unlock timestamp has not been reached."
+      "code": 7001,
+      "name": "TimeLockNotExpired",
+      "msg": "TIME_LOCK_NOT_EXPIRED: Withdrawal blocked - unlock time not reached"
     },
     {
-      "code": 6001,
-      "name": "InvalidAssetType",
-      "msg": "Invalid asset type for this operation. Expected a different type (SOL or Token)."
+      "code": 7002,
+      "name": "InvalidUnlockTime",
+      "msg": "INVALID_UNLOCK_TIME: Unlock timestamp must be in the future"
     },
     {
-      "code": 6002,
-      "name": "InvalidTokenVault",
-      "msg": "Invalid token vault account. The provided vault does not match the one stored on the TimeLockAccount."
+      "code": 7101,
+      "name": "InsufficientBalance",
+      "msg": "INSUFFICIENT_BALANCE: Account balance too low for withdrawal"
     },
     {
-      "code": 6003,
-      "name": "InvalidTimestamp",
-      "msg": "Invalid timestamp. The unlock timestamp must be in the future."
-    },
-    {
-      "code": 6004,
+      "code": 7102,
       "name": "InvalidAmount",
-      "msg": "Invalid amount. Amount must be greater than zero."
+      "msg": "INVALID_AMOUNT: Amount must be greater than zero"
+    },
+    {
+      "code": 7103,
+      "name": "AccountNotEmpty",
+      "msg": "ACCOUNT_NOT_EMPTY: Cannot close account with remaining funds"
+    },
+    {
+      "code": 7201,
+      "name": "InvalidAssetType",
+      "msg": "INVALID_ASSET_TYPE: Operation not supported for this asset type"
+    },
+    {
+      "code": 7202,
+      "name": "InvalidTokenVault",
+      "msg": "INVALID_TOKEN_VAULT: Token vault mismatch"
+    },
+    {
+      "code": 7301,
+      "name": "Unauthorized",
+      "msg": "UNAUTHORIZED: Caller is not the account owner"
+    },
+    {
+      "code": 7401,
+      "name": "OperationInProgress",
+      "msg": "REENTRANCY_DETECTED: Operation already in progress"
+    },
+    {
+      "code": 7501,
+      "name": "NotInitialized",
+      "msg": "NOT_INITIALIZED: Account not properly initialized"
+    },
+    {
+      "code": 7601,
+      "name": "ArithmeticOverflow",
+      "msg": "ARITHMETIC_OVERFLOW: Mathematical operation overflow"
+    },
+    {
+      "code": 7602,
+      "name": "TransferFailed",
+      "msg": "TRANSFER_FAILED: Blockchain transfer operation failed"
+    },
+    {
+      "code": 7603,
+      "name": "UnsupportedVersion",
+      "msg": "UNSUPPORTED_VERSION: Program version not supported"
     }
   ],
   "types": [
+    {
+      "name": "AccountClosed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "time_lock_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
     {
       "name": "AssetType",
       "type": {
@@ -704,6 +844,66 @@
           },
           {
             "name": "Token"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DepositEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "time_lock_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "depositor",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "new_balance",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "asset_type",
+            "type": {
+              "defined": {
+                "name": "AssetType"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReentrancyDetected",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "time_lock_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "caller",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "operation_attempted",
+            "type": "string"
           }
         ]
       }
@@ -740,6 +940,92 @@
           {
             "name": "token_vault",
             "type": "pubkey"
+          },
+          {
+            "name": "is_initialized",
+            "type": "bool"
+          },
+          {
+            "name": "sol_balance",
+            "type": "u64"
+          },
+          {
+            "name": "spl_token_account",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "is_processing",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TimeLockCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "time_lock_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "unlock_timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "asset_type",
+            "type": {
+              "defined": {
+                "name": "AssetType"
+              }
+            }
+          },
+          {
+            "name": "current_timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ValidationFailed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "time_lock_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "caller",
+            "type": "pubkey"
+          },
+          {
+            "name": "error_code",
+            "type": "u32"
+          },
+          {
+            "name": "error_message",
+            "type": "string"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "current_balance",
+            "type": "u64"
+          },
+          {
+            "name": "unlock_timestamp",
+            "type": "i64"
           }
         ]
       }
@@ -780,6 +1066,46 @@
           {
             "name": "time_remaining",
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawalEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "time_lock_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "recipient",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "remaining_balance",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "asset_type",
+            "type": {
+              "defined": {
+                "name": "AssetType"
+              }
+            }
           }
         ]
       }

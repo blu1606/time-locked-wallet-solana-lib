@@ -9,7 +9,6 @@ use anchor_spl::token::{Token, TokenAccount, Transfer};
 // ============================================================================
 
 #[derive(Accounts)]
-#[instruction(amount: u64)]
 pub struct WithdrawSol<'info> {
     #[account(
         mut, 
@@ -22,10 +21,6 @@ pub struct WithdrawSol<'info> {
     
     #[account(mut)]
     pub owner: Signer<'info>,
-    
-    /// CHECK: Recipient account will be validated during transfer
-    #[account(mut)]
-    pub recipient: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
 }
@@ -35,7 +30,6 @@ pub fn withdraw_sol(ctx: Context<WithdrawSol>) -> Result<()> {
     msg!("🔍 WITHDRAWAL_INITIATED: Starting SOL withdrawal validation");
     msg!("📍 Account: {}", ctx.accounts.time_lock_account.key());
     msg!("👤 Owner: {}", ctx.accounts.owner.key());
-    msg!("📫 Recipient: {}", ctx.accounts.recipient.key());
     
     let time_lock_account = &mut ctx.accounts.time_lock_account;
     
@@ -59,7 +53,7 @@ pub fn withdraw_sol(ctx: Context<WithdrawSol>) -> Result<()> {
     msg!("📊 BALANCE_RESET: Account balances set to 0");
     
     // 🌐 PHASE 3: INTERACTIONS - External calls last
-    msg!("🌐 TRANSFER_EXECUTION: Executing SOL transfer to recipient");
+    msg!("🌐 TRANSFER_EXECUTION: Executing SOL transfer to owner");
     
     // Prepare signer seeds (fix lifetime issue)
     let owner_key = ctx.accounts.owner.key();
@@ -74,7 +68,7 @@ pub fn withdraw_sol(ctx: Context<WithdrawSol>) -> Result<()> {
     // Create transfer instruction
     let transfer_instruction = anchor_lang::system_program::Transfer {
         from: time_lock_account.to_account_info(),
-        to: ctx.accounts.recipient.to_account_info(),
+        to: ctx.accounts.owner.to_account_info(),
     };
     
     // Execute transfer with PDA signing
@@ -95,13 +89,13 @@ pub fn withdraw_sol(ctx: Context<WithdrawSol>) -> Result<()> {
         Ok(_) => {
             msg!("✅ TRANSFER_SUCCESS: SOL transfer completed successfully");
             msg!("💰 AMOUNT_TRANSFERRED: {} lamports", amount_to_transfer);
-            msg!("📫 RECIPIENT_RECEIVED: {}", ctx.accounts.recipient.key());
+            msg!("📫 OWNER_RECEIVED: {}", ctx.accounts.owner.key());
             
             // Emit event for successful withdrawal
             emit!(WithdrawalEvent {
                 time_lock_account: ctx.accounts.time_lock_account.key(),
                 owner: ctx.accounts.owner.key(),
-                recipient: ctx.accounts.recipient.key(),
+                recipient: ctx.accounts.owner.key(),
                 amount: amount_to_transfer,
                 remaining_balance: 0, // All SOL withdrawn
                 timestamp: Clock::get()?.unix_timestamp,
