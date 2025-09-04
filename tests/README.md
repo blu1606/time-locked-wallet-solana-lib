@@ -2,7 +2,9 @@
 
 This directory contains comprehensive tests for the Time-Locked Wallet Solana program, designed to work on both localnet and devnet environments.
 
-## Test Files
+> 📋 **For Complete Test Strategy**: See [TEST_PLAN.md](../TEST_PLAN.md) for the comprehensive testing strategy and roadmap.
+
+## Current Test Files
 
 ### 1. `localnet-test.ts`
 Comprehensive test suite for localnet development and testing.
@@ -61,11 +63,45 @@ npm run test:withdraw <timeLockAccountAddress> devnet
 ```bash
 npm run test:withdraw 8H3kyZCtLpV3ugf8hVAYHL5sPuYz92jbGaqLAjz7uzEp
 npm run test:withdraw 8H3kyZCtLpV3ugf8hVAYHL5sPuYz92jbGaqLAjz7uzEp devnet
-```
+   ```
 
-## Test Configuration
+## Planned Test Files (Comprehensive Test Plan)
 
-Each test file has its own configuration:
+The following test files are planned as part of our comprehensive testing strategy. See [TEST_PLAN.md](../TEST_PLAN.md) for full details:
+
+### 🔄 Core Functionality Tests
+- `account-lifecycle-test.ts` - Complete account lifecycle testing
+- `timelock-validation-test.ts` - Time-based validation scenarios
+
+### 🔒 Account Closure Tests  
+- `sol-closure-test.ts` - SOL account closure and rent reclaim
+- `token-closure-test.ts` - Token account closure scenarios
+- `admin-closure-test.ts` - Administrative closure operations
+
+### 🛡️ Security Tests
+- `security-auth-test.ts` - Authorization and access control
+- `security-attacks-test.ts` - Reentrancy and attack vector testing
+- `input-validation-test.ts` - Input boundary and validation testing
+
+### ⚡ Performance Tests
+- `performance-gas-test.ts` - Gas optimization and benchmarking
+- `stress-test.ts` - High volume and stress testing
+
+### 🔗 Integration Tests
+- `network-compatibility-test.ts` - Multi-network compatibility
+- `sdk-integration-test.ts` - SDK and framework integration
+
+### 📊 System Tests
+- `event-emission-test.ts` - Event emission and listening
+- `logging-system-test.ts` - Conditional logging system validation
+
+### Implementation Priority
+1. **Phase 1**: Core functionality and basic security tests
+2. **Phase 2**: Account closure and advanced scenarios  
+3. **Phase 3**: Performance and stress testing
+4. **Phase 4**: Full integration and compatibility validation
+
+## Test ConfigurationEach test file has its own configuration:
 
 - **Localnet Tests**: 30-second unlock time, 0.1 SOL deposit
 - **Devnet Tests**: 60-second unlock time, 0.01 SOL deposit (smaller for cost efficiency)

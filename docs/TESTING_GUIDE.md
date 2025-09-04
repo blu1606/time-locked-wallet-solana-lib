@@ -36,10 +36,21 @@ Our testing approach follows a multi-layered strategy:
 ### Test Coverage Goals
 
 - **Program Instructions**: 100% coverage of all Rust functions
-- **SDK Methods**: 100% coverage of all TypeScript client methods
+- **SDK Methods**: 100% coverage of all TypeScript client methods  
 - **Error Conditions**: All error paths tested
 - **Edge Cases**: Boundary conditions and unusual scenarios
 - **Security**: Reentrancy, unauthorized access, and validation bypasses
+
+#### New Feature Coverage (Account Closure & Rent Reclaim)
+
+- **Account Closure Instructions**: 100% coverage of all closure methods
+  - `withdraw_and_close_sol`: Complete SOL withdrawal with account closure
+  - `close_token_account`: Token account cleanup with rent reclaim
+  - `close_empty_account`: Empty account removal with rent refund
+  - `force_close_expired`: Forced closure of expired time-locks
+- **Event Emission**: 100% coverage of event emission and listener functionality
+- **Security Boundaries**: Complete validation of authorization and access controls
+- **Rent Reclaim Logic**: Full validation of rent calculation and refund processes
 
 ## Test Environment Setup
 
@@ -134,6 +145,35 @@ mod tests {
 ### 2. Integration Tests (TypeScript)
 
 Located in: `tests/`
+
+#### Core Test Files
+
+- **`localnet-test.ts`**: Basic functionality testing on local validator
+- **`devnet-test.ts`**: Full integration testing on Solana devnet
+- **`test-withdraw.ts`**: Comprehensive withdrawal scenario testing
+
+#### New Feature Test Files (Account Closure & Rent Reclaim)
+
+- **`account-closure-basic-test.ts`**: Core account closure functionality
+  - Basic closure operations with rent reclaim validation
+  - SOL account closure (`withdraw_and_close_sol`)
+  - Token account closure (`close_token_account`)
+  - Empty account cleanup (`close_empty_account`)
+  
+- **`security-basic-test.ts`**: Security and authorization validation
+  - Unauthorized access prevention
+  - PDA validation and ownership checks
+  - Time-lock enforcement during closure operations
+  
+- **`closure-comprehensive-test.ts`**: Advanced closure scenarios
+  - Multi-deposit accounts with partial withdrawals
+  - Force closure of expired accounts (`force_close_expired`)
+  - Edge cases and error condition handling
+  
+- **`event-emission-test.ts`**: Event system validation
+  - `AccountClosed` event emission testing
+  - `RentRefunded` event validation
+  - Event listener functionality and data integrity
 
 #### Localnet Tests
 
@@ -241,6 +281,15 @@ npm run test:coverage
 
 # Run specific test file
 npx ts-mocha tests/localnet-test.ts
+
+# Run new feature test suites
+npx ts-mocha tests/account-closure-basic-test.ts
+npx ts-mocha tests/security-basic-test.ts  
+npx ts-mocha tests/closure-comprehensive-test.ts
+npx ts-mocha tests/event-emission-test.ts
+
+# Run all closure-related tests
+npx ts-mocha tests/*closure*.ts tests/*security*.ts tests/*event*.ts
 
 # Run with debug output
 ANCHOR_LOG=debug npm test
