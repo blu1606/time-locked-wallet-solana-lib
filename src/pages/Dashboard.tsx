@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
+import { getAssociatedTokenAddress } from '@solana/spl-token';
 import { BN } from '@coral-xyz/anchor';
 
 import { useTimeLock } from '../hooks/useTimeLock';
+import { TokenService } from '../services/tokenService';
 import { TimeLockData, AssetType } from '../types';
 import { Button, Card, Countdown } from '../components';
 import { ClockIcon, CurrencyDollarIcon, KeyIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
@@ -20,6 +22,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigateToCreate }) => {
 
   const [timeLocks, setTimeLocks] = useState<TimeLockData[]>([]);
   const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [usdcBalance, setUsdcBalance] = useState<number>(0);
   const [completedPayments, setCompletedPayments] = useState<TimeLockData[]>([]);
   const [activeTab, setActiveTab] = useState<'locked' | 'ready' | 'completed'>('locked');
 
@@ -29,13 +32,67 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigateToCreate }) => {
     setTimeLocks(locks);
   }, [loadUserTimeLocks]);
 
-  // Load wallet balance
+  // Load wallet balance (SOL and USDC)
   const loadWalletBalance = useCallback(async () => {
     if (!publicKey) return;
     
     try {
-      const balance = await connection.getBalance(publicKey);
-      setWalletBalance(balance / LAMPORTS_PER_SOL);
+      console.log('💰 Loading wallet balances...');
+      console.log('🔍 Using USDC mint:', TokenService.USDC_DEVNET_MINT);
+      
+      // Load SOL balance
+      const solBalance = await connection.getBalance(publicKey);
+      const solBalanceFormatted = solBalance / LAMPORTS_PER_SOL;
+      console.log('SOL Balance:', solBalanceFormatted);
+      setWalletBalance(solBalanceFormatted);
+
+      // Load USDC balance with detailed debugging
+      try {
+        const usdcMint = new PublicKey(TokenService.USDC_DEVNET_MINT);
+        const usdcTokenAccount = await getAssociatedTokenAddress(usdcMint, publicKey);
+        
+        console.log('🔍 USDC Debug Info:', {
+          usdcMint: usdcMint.toBase58(),
+          expectedTokenAccount: usdcTokenAccount.toBase58(),
+          wallet: publicKey.toBase58()
+        });
+
+        // Check if token account exists
+        const accountInfo = await connection.getAccountInfo(usdcTokenAccount);
+        if (!accountInfo) {
+          console.log('❌ USDC token account does not exist');
+          
+          // Try to find any USDC token accounts for this wallet
+          const tokenAccounts = await connection.getTokenAccountsByOwner(publicKey, {
+            mint: usdcMint
+          });
+          
+          console.log('🔍 Found USDC token accounts:', tokenAccounts.value.length);
+          
+          if (tokenAccounts.value.length > 0) {
+            // Use the first USDC token account found
+            const tokenAccountPubkey = tokenAccounts.value[0].pubkey;
+            console.log('✅ Using existing USDC account:', tokenAccountPubkey.toBase58());
+            
+            const balance = await connection.getTokenAccountBalance(tokenAccountPubkey);
+            const usdcBalanceFormatted = parseFloat(balance.value.uiAmountString || '0');
+            console.log('💰 USDC Balance:', usdcBalanceFormatted);
+            setUsdcBalance(usdcBalanceFormatted);
+          } else {
+            console.log('❌ No USDC token accounts found');
+            setUsdcBalance(0);
+          }
+        } else {
+          // Account exists, get balance
+          const usdcTokenAccountInfo = await connection.getTokenAccountBalance(usdcTokenAccount);
+          const usdcBalanceFormatted = parseFloat(usdcTokenAccountInfo.value.uiAmountString || '0');
+          console.log('💰 USDC Balance (ATA):', usdcBalanceFormatted);
+          setUsdcBalance(usdcBalanceFormatted);
+        }
+      } catch (usdcError) {
+        console.error('❌ USDC balance error:', usdcError);
+        setUsdcBalance(0);
+      }
     } catch (error) {
       console.error('Error loading wallet balance:', error);
     }
@@ -44,6 +101,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigateToCreate }) => {
   useEffect(() => {
     loadTimeLocks();
     loadWalletBalance();
+  }, [connected, publicKey, loadTimeLocks, loadWalletBalance]);
+
+  // Auto-refresh data every 5 seconds for real-time updates
+  useEffect(() => {
+    if (!connected || !publicKey) return;
+    
+    const interval = setInterval(() => {
+      console.log('🔄 Auto-refreshing dashboard data...');
+      loadTimeLocks();
+      loadWalletBalance();
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [connected, publicKey, loadTimeLocks, loadWalletBalance]);
 
   // Handle withdraw
@@ -244,9 +314,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigateToCreate }) => {
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                       Wallet Balance
                     </p>
-                    <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                      {walletBalance.toFixed(4)} SOL
-                    </p>
+                    <div className="space-y-1">
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {walletBalance.toFixed(4)} SOL
+                      </p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {usdcBalance.toFixed(2)} USDC
+                      </p>
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -302,26 +377,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigateToCreate }) => {
 
 
 
-            {/* Refresh Button */}
-            <div className="flex justify-between items-center">
+            {/* Title */}
+            <div className="mb-6">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Time-Locked Wallets
               </h2>
-              <div className="flex space-x-2">
-                <Button
-                  variant="secondary"
-                  onClick={loadTimeLocks}
-                  loading={isLoading}
-                >
-                  Refresh
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={loadWalletBalance}
-                >
-                  Refresh Balance
-                </Button>
-              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Auto-refreshing every 5 seconds
+              </p>
             </div>
 
             {/* Time Locks List */}

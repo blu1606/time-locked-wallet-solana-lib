@@ -32,10 +32,17 @@ const CreateLock: React.FC<CreateLockProps> = ({ onNavigateToDashboard }) => {
   const [selectedLockType, setSelectedLockType] = useState<LockType>(LockTypeService.getSelfLockType());
   const availableLockTypes = LockTypeService.getDefaultLockTypes();
   const [amount, setAmount] = useState('');
-  const [unlockDateTime, setUnlockDateTime] = useState('');
+  const [unlockDateTime, setUnlockDateTime] = useState(() => {
+    // Set default to current time
+    const now = new Date();
+    const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+    return localDateTime;
+  });
   const [recipientAddress, setRecipientAddress] = useState('');
 
-  // Get current datetime in local timezone for min attribute
+  // Get current datetime in local timezone for min attribute and default value
   const now = new Date();
   const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
     .toISOString()

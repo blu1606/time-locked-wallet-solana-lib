@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useContext, useMemo, useEffect } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, SystemProgram } from '@solana/web3.js';
 import { Program, AnchorProvider, Idl, BN } from '@coral-xyz/anchor';
@@ -33,6 +33,31 @@ interface ProgramProviderProps {
 export const ProgramProvider: React.FC<ProgramProviderProps> = ({ children }) => {
   const { connection } = useConnection();
   const wallet = useWallet();
+
+  // Track 403 errors
+  useEffect(() => {
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      try {
+        const response = await originalFetch(...args);
+        if (response.status === 403) {
+          console.warn('🚫 403 Forbidden detected:', {
+            url: args[0],
+            status: response.status,
+            statusText: response.statusText
+          });
+        }
+        return response;
+      } catch (error) {
+        console.error('🔥 Fetch error:', error);
+        throw error;
+      }
+    };
+
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, []);
 
   const program = useMemo(() => {
     if (!wallet.publicKey || !wallet.signTransaction) return null;
@@ -162,6 +187,8 @@ export const ProgramProvider: React.FC<ProgramProviderProps> = ({ children }) =>
       throw new Error('PDA derivation mismatch - account may be corrupted');
     }
 
+    console.log('🚀 Attempting withdrawal with enhanced logging...');
+    
     const tx = await program.methods
       .withdrawSol()
       .accounts({
@@ -169,7 +196,10 @@ export const ProgramProvider: React.FC<ProgramProviderProps> = ({ children }) =>
         owner: wallet.publicKey,
         systemProgram: SystemProgram.programId,
       })
-      .rpc();
+      .rpc({
+        commitment: 'confirmed',
+        preflightCommitment: 'confirmed'
+      });
 
     return tx;
   };

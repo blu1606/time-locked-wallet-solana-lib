@@ -6,9 +6,10 @@ import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
 import toast from 'react-hot-toast';
 
 import { Button, Card } from '../components';
+import { TokenService } from '../services/tokenService';
 
-// USDC mint address on devnet
-const USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
+// USDC mint address on devnet (correct devnet address)
+const USDC_MINT = new PublicKey(TokenService.USDC_DEVNET_MINT);
 
 const Airdrop: React.FC = () => {
   const { connected, publicKey } = useWallet();
@@ -28,14 +29,50 @@ const Airdrop: React.FC = () => {
       const solBalance = await connection.getBalance(publicKey);
       const solAmount = solBalance / LAMPORTS_PER_SOL;
 
-      // Get USDC balance
+      // Get USDC balance with detailed debugging
       let usdcAmount = 0;
       try {
         const usdcAta = await getAssociatedTokenAddress(USDC_MINT, publicKey);
-        const usdcAccount = await getAccount(connection, usdcAta);
-        usdcAmount = Number(usdcAccount.amount) / Math.pow(10, 6); // USDC has 6 decimals
+        
+              console.log('🔍 Airdrop USDC Debug:', {
+        usdcMint: USDC_MINT.toBase58(),
+        usdcMintConstant: TokenService.USDC_DEVNET_MINT,
+        expectedATA: usdcAta.toBase58(),
+        wallet: publicKey.toBase58()
+      });
+
+        // Check if ATA exists
+        const accountInfo = await connection.getAccountInfo(usdcAta);
+        if (!accountInfo) {
+          console.log('❌ USDC ATA does not exist, searching for existing accounts...');
+          
+          // Try to find any USDC token accounts for this wallet
+          const tokenAccounts = await connection.getTokenAccountsByOwner(publicKey, {
+            mint: USDC_MINT
+          });
+          
+          console.log('🔍 Found USDC token accounts:', tokenAccounts.value.length);
+          
+          if (tokenAccounts.value.length > 0) {
+            // Use the first USDC token account found
+            const tokenAccountPubkey = tokenAccounts.value[0].pubkey;
+            console.log('✅ Using existing USDC account:', tokenAccountPubkey.toBase58());
+            
+            const balance = await connection.getTokenAccountBalance(tokenAccountPubkey);
+            usdcAmount = parseFloat(balance.value.uiAmountString || '0');
+            console.log('💰 USDC Balance (existing):', usdcAmount);
+          } else {
+            console.log('❌ No USDC token accounts found');
+            usdcAmount = 0;
+          }
+        } else {
+          // ATA exists, get balance
+          const usdcAccount = await getAccount(connection, usdcAta);
+          usdcAmount = Number(usdcAccount.amount) / Math.pow(10, 6); // USDC has 6 decimals
+          console.log('💰 USDC Balance (ATA):', usdcAmount);
+        }
       } catch (error) {
-        // USDC account doesn't exist yet
+        console.error('❌ USDC balance loading error:', error);
         usdcAmount = 0;
       }
 
@@ -100,11 +137,19 @@ const Airdrop: React.FC = () => {
     }
   };
 
-  // Request USDC airdrop (placeholder - chưa có program)
-  const requestUsdcAirdrop = async () => {
-    toast.error('USDC airdrop is not supported yet. This feature will be added in the future.', {
+  // Visit Circle faucet for USDC
+  const visitUsdcFaucet = () => {
+    console.log('🌐 Opening Circle USDC faucet...');
+    window.open('https://faucet.circle.com/', '_blank');
+    
+    toast.success('Circle USDC faucet opened in new tab! Use your wallet address to request USDC.', {
       duration: 5000
     });
+
+    // Refresh balance after user likely got USDC
+    setTimeout(() => {
+      loadBalance();
+    }, 10000); // Give user time to complete airdrop
   };
 
   return (
@@ -225,10 +270,10 @@ const Airdrop: React.FC = () => {
                   />
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                      Request USDC Airdrop
+                      Get USDC from Faucet
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Receive USDC from devnet faucet (not available yet)
+                      Visit Circle's faucet to get test USDC (Mint: Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr)
                     </p>
                   </div>
                 </div>
@@ -240,22 +285,22 @@ const Airdrop: React.FC = () => {
                     </label>
                     <input
                       type="number"
+                      placeholder="Amount (max 10)"
                       value={usdcAmount}
                       onChange={(e) => setUsdcAmount(e.target.value)}
-                      min="1"
-                      max="100"
-                      step="1"
-                      disabled
-                      className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 shadow-sm sm:text-sm cursor-not-allowed py-3 px-4"
+                      min="0.01"
+                      max="10"
+                      step="0.01"
+                      className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 sm:text-sm py-3 px-4"
                     />
                   </div>
                   <Button
-                    onClick={requestUsdcAirdrop}
+                    onClick={visitUsdcFaucet}
                     variant="secondary"
-                    disabled
+                    disabled={!connected}
                     className="self-end"
                   >
-                    Coming Soon
+                    Visit Faucet
                   </Button>
                 </div>
               </div>

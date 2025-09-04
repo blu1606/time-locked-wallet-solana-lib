@@ -2,6 +2,9 @@ import { Token } from '../components/TokenSelector';
 
 // Token service to manage available tokens
 export class TokenService {
+  // Devnet USDC mint address (correct devnet address)
+  public static readonly USDC_DEVNET_MINT = 'Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr';
+
   private static readonly SOL_TOKEN: Token = {
     symbol: 'SOL',
     name: 'Solana',
@@ -14,7 +17,7 @@ export class TokenService {
     {
       symbol: 'USDC',
       name: 'USD Coin',
-      mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+      mint: TokenService.USDC_DEVNET_MINT, // Use devnet mint
       decimals: 6,
       logoUrl: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png'
     }
