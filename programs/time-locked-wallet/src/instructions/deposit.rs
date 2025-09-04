@@ -4,6 +4,7 @@ use crate::errors::TimeLockError;
 use crate::events::DepositEvent;
 use anchor_lang::system_program;
 use anchor_spl::token::{Token, TokenAccount, Transfer};
+use anchor_spl::associated_token::AssociatedToken;
 
 // ============================================================================
 // SOL DEPOSIT
@@ -125,13 +126,16 @@ pub struct DepositToken<'info> {
     pub token_from_ata: Account<'info, TokenAccount>,
 
     #[account(
-        mut, 
+        init_if_needed,
+        payer = initializer,
         associated_token::mint = token_from_ata.mint,
         associated_token::authority = time_lock_account,
     )]
     pub token_vault: Account<'info, TokenAccount>,
     
     pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
 }
 
 pub fn deposit_token(ctx: Context<DepositToken>, amount: u64) -> Result<()> {

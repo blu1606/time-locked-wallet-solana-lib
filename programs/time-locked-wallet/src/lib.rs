@@ -8,6 +8,7 @@ pub mod utils;
 
 use instructions::*;
 use state::AssetType;
+pub use utils::logging::*;
 
 declare_id!("899SKikn1WiRBSurKhMZyNCNvYmWXVE6hZFYbFim293g");
 

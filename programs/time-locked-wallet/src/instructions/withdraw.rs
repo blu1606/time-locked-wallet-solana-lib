@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use crate::state::{TimeLockAccount, AssetType};
 use crate::errors::TimeLockError;
 use crate::events::WithdrawalEvent;
+use crate::{debug_msg, critical_msg, event_msg};
 use anchor_spl::token::{Token, TokenAccount, Transfer};
 
 // ============================================================================
@@ -26,45 +27,23 @@ pub struct WithdrawSol<'info> {
 }
 
 pub fn withdraw_sol(ctx: Context<WithdrawSol>) -> Result<()> {
-    // 🔍 PHASE 1: CHECKS - Validate all conditions first  
-    msg!("🔍 WITHDRAWAL_INITIATED: Starting SOL withdrawal validation");
-    msg!("📍 Account: {}", ctx.accounts.time_lock_account.key());
-    msg!("👤 Owner: {}", ctx.accounts.owner.key());
-    
     let time_lock_account = &mut ctx.accounts.time_lock_account;
     
-    // Start reentrancy protection with monitoring
-    time_lock_account.start_operation_with_monitoring(ctx.accounts.owner.key())?;
+    debug_msg!("Withdrawal initiated for account: {}", ctx.accounts.time_lock_account.key());
     
-    // Validate withdrawal conditions (includes detailed logging)
+    time_lock_account.start_operation_with_monitoring(ctx.accounts.owner.key())?;
     time_lock_account.validate_sol_withdrawal()?;
     
     let amount_to_transfer = time_lock_account.sol_balance;
-    msg!("💰 WITHDRAWAL_AMOUNT: {} lamports ({} SOL)", 
-         amount_to_transfer, amount_to_transfer as f64 / 1_000_000_000.0);
+    require!(amount_to_transfer > 0, TimeLockError::InsufficientBalance);
     
-    // 🔧 PHASE 2: EFFECTS - Update state BEFORE external interactions
-    msg!("🔧 STATE_UPDATE: Updating account balances before transfer");
+    debug_msg!("Withdrawal amount: {} lamports", amount_to_transfer);
     
-    // Update balance first (critical for reentrancy protection)
     time_lock_account.sol_balance = 0;
     time_lock_account.amount = 0;
     
-    msg!("📊 BALANCE_RESET: Account balances set to 0");
-    
-    // 🌐 PHASE 3: INTERACTIONS - Manual lamports transfer for PDA accounts with data
-    msg!("🌐 TRANSFER_EXECUTION: Executing SOL transfer to owner via lamports manipulation");
-    
-    // Manual lamports transfer (required for accounts with data)
     let result = (|| -> Result<()> {
-        // Get current lamports
         let time_lock_lamports = time_lock_account.to_account_info().lamports();
-        let owner_lamports = ctx.accounts.owner.to_account_info().lamports();
-        
-        msg!("📊 BEFORE_TRANSFER: PDA={} lamports, Owner={} lamports", 
-             time_lock_lamports, owner_lamports);
-        
-        // Ensure we have enough lamports (including rent exempt amount)
         let rent_exempt_amount = Rent::get()?.minimum_balance(
             time_lock_account.to_account_info().data_len()
         );
@@ -75,31 +54,25 @@ pub fn withdraw_sol(ctx: Context<WithdrawSol>) -> Result<()> {
             TimeLockError::InsufficientFunds
         );
         
-        // Perform manual lamports transfer
         **time_lock_account.to_account_info().try_borrow_mut_lamports()? -= amount_to_transfer;
         **ctx.accounts.owner.to_account_info().try_borrow_mut_lamports()? += amount_to_transfer;
         
-        msg!("✅ LAMPORTS_TRANSFERRED: {} lamports moved to owner", amount_to_transfer);
         Ok(())
     })();
     
-    // 🔓 Always reset reentrancy guard (regardless of success/failure)
     time_lock_account.end_operation();
     
-    // Check transfer result with detailed logging
     match result {
         Ok(_) => {
-            msg!("✅ TRANSFER_SUCCESS: SOL transfer completed successfully");
-            msg!("💰 AMOUNT_TRANSFERRED: {} lamports", amount_to_transfer);
-            msg!("📫 OWNER_RECEIVED: {}", ctx.accounts.owner.key());
+            event_msg!("Withdrawal completed: {} lamports to {}", 
+                      amount_to_transfer, ctx.accounts.owner.key());
             
-            // Emit event for successful withdrawal
             emit!(WithdrawalEvent {
                 time_lock_account: ctx.accounts.time_lock_account.key(),
                 owner: ctx.accounts.owner.key(),
                 recipient: ctx.accounts.owner.key(),
                 amount: amount_to_transfer,
-                remaining_balance: 0, // All SOL withdrawn
+                remaining_balance: 0,
                 timestamp: Clock::get()?.unix_timestamp,
                 asset_type: AssetType::Sol,
             });
@@ -107,12 +80,9 @@ pub fn withdraw_sol(ctx: Context<WithdrawSol>) -> Result<()> {
             Ok(())
         },
         Err(e) => {
-            msg!("❌ SOL transfer failed: {:?}", e);
-            
-            // ⏪ ROLLBACK: Restore balance if transfer failed
+            critical_msg!("Withdrawal failed, rolling back: {:?}", e);
             time_lock_account.sol_balance = amount_to_transfer;
             time_lock_account.amount = amount_to_transfer;
-            
             Err(e.into())
         }
     }
