@@ -451,7 +451,145 @@ describe("Edge Cases", () => {
 });
 ```
 
-### 4. Concurrent Operation Testing
+### 4. Account Closure Testing
+
+```typescript
+describe("Account Closure Operations", () => {
+  it("Should withdraw and close SOL account", async () => {
+    // Create account with SOL
+    const unlockTime = Math.floor(Date.now() / 1000) + 60;
+    const result = await client.createSolTimeLock({
+      owner: wallet.publicKey,
+      unlockTimestamp: unlockTime,
+      assetType: AssetType.Sol,
+      amount: 1_000_000_000
+    });
+    
+    // Wait for unlock time
+    await new Promise(resolve => setTimeout(resolve, 65000));
+    
+    // Get initial recipient balance
+    const initialBalance = await connection.getBalance(wallet.publicKey);
+    
+    // Withdraw and close account
+    const signature = await client.withdrawAndCloseSol({
+      timeLockAccount: result.timeLockAccount,
+      owner: wallet.publicKey
+    });
+    
+    // Verify account is closed
+    const accountInfo = await connection.getAccountInfo(result.timeLockAccount);
+    expect(accountInfo).to.be.null;
+    
+    // Verify balance increased (SOL + rent)
+    const finalBalance = await connection.getBalance(wallet.publicKey);
+    expect(finalBalance).to.be.greaterThan(initialBalance);
+  });
+  
+  it("Should close empty account", async () => {
+    // Create account without initial deposit
+    const unlockTime = Math.floor(Date.now() / 1000) + 60;
+    const result = await client.createSolTimeLock({
+      owner: wallet.publicKey,
+      unlockTimestamp: unlockTime,
+      assetType: AssetType.Sol
+    });
+    
+    // Wait for unlock time
+    await new Promise(resolve => setTimeout(resolve, 65000));
+    
+    // Close empty account
+    const signature = await client.closeEmptyAccount({
+      timeLockAccount: result.timeLockAccount,
+      owner: wallet.publicKey
+    });
+    
+    // Verify account is closed
+    const accountInfo = await connection.getAccountInfo(result.timeLockAccount);
+    expect(accountInfo).to.be.null;
+  });
+  
+  it("Should reject closing non-empty account with closeEmpty", async () => {
+    const unlockTime = Math.floor(Date.now() / 1000) + 60;
+    const result = await client.createSolTimeLock({
+      owner: wallet.publicKey,
+      unlockTimestamp: unlockTime,
+      assetType: AssetType.Sol,
+      amount: 1_000_000_000
+    });
+    
+    await new Promise(resolve => setTimeout(resolve, 65000));
+    
+    try {
+      await client.closeEmptyAccount({
+        timeLockAccount: result.timeLockAccount,
+        owner: wallet.publicKey
+      });
+      expect.fail("Should have thrown an error");
+    } catch (error) {
+      expect(error.code).to.equal(6002); // AccountNotEmpty
+    }
+  });
+  
+  it("Should force close expired account", async () => {
+    // This test would require admin/authority privileges
+    const pastTime = Math.floor(Date.now() / 1000) - 3600; // 1 hour ago
+    const result = await client.createSolTimeLock({
+      owner: wallet.publicKey,
+      unlockTimestamp: pastTime,
+      assetType: AssetType.Sol,
+      amount: 1_000_000_000
+    });
+    
+    // Force close with authority
+    const signature = await client.forceCloseExpired({
+      timeLockAccount: result.timeLockAccount,
+      owner: wallet.publicKey
+    });
+    
+    // Verify account is closed
+    const accountInfo = await connection.getAccountInfo(result.timeLockAccount);
+    expect(accountInfo).to.be.null;
+  });
+  
+  it("Should emit closure events", async () => {
+    let eventReceived = false;
+    
+    // Listen for account closure event
+    const listener = client.program.addEventListener('AccountClosed', (event, slot) => {
+      eventReceived = true;
+      expect(event.timeLockAccount).to.be.ok;
+      expect(event.rentRefunded).to.be.greaterThan(0);
+    });
+    
+    // Create and close account
+    const unlockTime = Math.floor(Date.now() / 1000) + 60;
+    const result = await client.createSolTimeLock({
+      owner: wallet.publicKey,
+      unlockTimestamp: unlockTime,
+      assetType: AssetType.Sol,
+      amount: 1_000_000_000
+    });
+    
+    await new Promise(resolve => setTimeout(resolve, 65000));
+    
+    await client.withdrawAndCloseSol({
+      timeLockAccount: result.timeLockAccount,
+      owner: wallet.publicKey
+    });
+    
+    // Wait for event
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    expect(eventReceived).to.be.true;
+    
+    // Remove listener
+    await client.program.removeEventListener(listener);
+  });
+});
+```
+
+### 5. Concurrent Operation Testing
 
 ```typescript
 describe("Concurrent Operations", () => {

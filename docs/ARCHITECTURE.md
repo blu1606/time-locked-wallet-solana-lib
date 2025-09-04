@@ -94,10 +94,13 @@ programs/time-locked-wallet/
 │   │   ├── mod.rs           # Module exports
 │   │   ├── initialize.rs    # Account initialization
 │   │   ├── deposit.rs       # Deposit operations
-│   │   └── withdraw.rs      # Withdrawal operations
+│   │   ├── withdraw.rs      # Withdrawal operations
+│   │   └── close.rs         # Account closure operations
 │   ├── errors.rs            # Custom error definitions
 │   ├── events.rs            # Event definitions
-│   └── utils.rs             # Utility functions
+│   └── utils/               # Utility modules
+│       ├── mod.rs          # Utility exports
+│       └── logging.rs      # Conditional logging macros
 └── Cargo.toml               # Rust dependencies
 ```
 
@@ -282,6 +285,47 @@ Withdrawal Request → Time Validation → Authorization Check → Fund Transfer
 │              │ │ Allow/Deny   │ │ Authorize    │ │              │ │ Close Acct   │
 └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
 ```
+
+### 4. Account Closure Flow
+
+```
+Closure Request → Validation → Fund Transfer → Rent Reclaim → Account Deletion
+       │              │            │             │              │
+       │              │            │             │              │
+       ▼              ▼            ▼             ▼              ▼
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│ Check Type  │ │ Verify      │ │ Transfer    │ │ Calculate   │ │ Close and   │
+│ Empty/Full  │ │ Ownership   │ │ Remaining   │ │ Rent Refund │ │ Delete      │
+│ Authorize   │ │ Time Lock   │ │ Funds       │ │ Send Refund │ │ Account     │
+└─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
+```
+
+#### Closure Operations
+
+- **`withdraw_and_close_sol`**: Withdraw all SOL and close account atomically
+- **`close_empty_account`**: Close empty accounts to reclaim rent
+- **`close_token_account`**: Close token vaults and reclaim rent
+- **`force_close_expired`**: Admin function to cleanup expired accounts
+
+### 5. Conditional Logging System
+
+```
+Log Request → Build Check → Feature Gate → Message Processing → Output
+     │            │            │               │                │
+     │            │            │               │                │
+     ▼            ▼            ▼               ▼                ▼
+┌─────────┐ ┌─────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│ Macro   │ │ Debug   │ │ Check       │ │ Format      │ │ Output to   │
+│ Call    │ │ Release │ │ Features    │ │ Message     │ │ Log/Ignore  │
+│         │ │ Mode    │ │ Enabled     │ │ Parameters  │ │             │
+└─────────┘ └─────────┘ └─────────────┘ └─────────────┘ └─────────────┘
+```
+
+#### Logging Macros
+
+- **`debug_msg!`**: Only logs in debug builds with `debug-logs` feature
+- **`critical_msg!`**: Always logs critical errors and state changes
+- **`event_msg!`**: Logs events when `debug-logs` or `event-logs` enabled
 
 ## Security Architecture
 

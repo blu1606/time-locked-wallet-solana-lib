@@ -335,6 +335,53 @@ const tokenSignature = await client.withdrawToken({
 });
 ```
 
+#### Account Closure and Rent Reclaim
+
+```typescript
+// Withdraw all SOL and close account to reclaim rent
+const closeSignature = await client.withdrawAndCloseSol({
+  timeLockAccount: solResult.timeLockAccount,
+  owner: wallet.publicKey
+});
+
+// Close empty account to reclaim rent
+const emptyCloseSignature = await client.closeEmptyAccount({
+  timeLockAccount: emptyTimeLockAccount,
+  owner: wallet.publicKey
+});
+
+// Close token account
+const tokenCloseSignature = await client.closeTokenAccount({
+  timeLockAccount: tokenResult.timeLockAccount,
+  owner: wallet.publicKey,
+  tokenToAta: userTokenAccount,
+  tokenVault: vaultAccount,
+  tokenProgramId: TOKEN_PROGRAM_ID
+});
+
+// Force close expired account (admin only)
+const forceCloseSignature = await client.forceCloseExpired({
+  timeLockAccount: expiredAccount,
+  owner: originalOwner
+});
+```
+
+#### Event Listening
+
+```typescript
+// Listen for account closure events
+client.program.addEventListener('AccountClosed', (event, slot) => {
+  console.log('Account closed:', event.timeLockAccount.toString());
+  console.log('Rent refunded:', event.rentRefunded);
+});
+
+// Listen for rent refund events
+client.program.addEventListener('RentRefunded', (event, slot) => {
+  console.log('Rent refunded to:', event.recipient.toString());
+  console.log('Amount:', event.amount);
+});
+```
+
 ## Advanced Topics
 
 ### Custom Program Modifications

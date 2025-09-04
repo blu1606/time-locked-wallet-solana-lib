@@ -320,6 +320,100 @@ async withdrawToken(params: TokenWithdrawParams): Promise<string>
 **Returns:**
 - `Promise<string>` - Transaction signature
 
+### Account Closure Operations
+
+#### withdrawAndCloseSol
+
+Withdraw all SOL from a time-locked wallet and close the account to reclaim rent.
+
+```typescript
+async withdrawAndCloseSol(params: WithdrawParams): Promise<string>
+```
+
+**Parameters:**
+- `params`: `WithdrawParams` - Withdrawal parameters
+
+**Returns:**
+- `Promise<string>` - Transaction signature
+
+**Example:**
+```typescript
+const signature = await client.withdrawAndCloseSol({
+    timeLockAccount: timeLockAccountAddress,
+    owner: wallet.publicKey
+});
+```
+
+#### closeEmptyAccount
+
+Close an empty time-locked wallet account to reclaim rent.
+
+```typescript
+async closeEmptyAccount(params: WithdrawParams): Promise<string>
+```
+
+**Parameters:**
+- `params`: `WithdrawParams` - Account parameters (must be empty)
+
+**Returns:**
+- `Promise<string>` - Transaction signature
+
+**Example:**
+```typescript
+const signature = await client.closeEmptyAccount({
+    timeLockAccount: timeLockAccountAddress,
+    owner: wallet.publicKey
+});
+```
+
+#### closeTokenAccount
+
+Close a token account associated with a time-locked wallet.
+
+```typescript
+async closeTokenAccount(params: TokenWithdrawParams): Promise<string>
+```
+
+**Parameters:**
+- `params`: `TokenWithdrawParams` - Token account parameters
+
+**Returns:**
+- `Promise<string>` - Transaction signature
+
+**Example:**
+```typescript
+const signature = await client.closeTokenAccount({
+    timeLockAccount: timeLockAccountAddress,
+    owner: wallet.publicKey,
+    tokenToAta: userTokenAccount,
+    tokenVault: vaultAccount,
+    tokenProgramId: TOKEN_PROGRAM_ID
+});
+```
+
+#### forceCloseExpired
+
+Force close an expired account (admin/authority only).
+
+```typescript
+async forceCloseExpired(params: WithdrawParams): Promise<string>
+```
+
+**Parameters:**
+- `params`: `WithdrawParams` - Account parameters (must be expired)
+
+**Returns:**
+- `Promise<string>` - Transaction signature
+
+**Example:**
+```typescript
+// Only available to program authority
+const signature = await client.forceCloseExpired({
+    timeLockAccount: expiredAccountAddress,
+    owner: originalOwner
+});
+```
+
 ### Query Operations
 
 #### getTimeLockData
