@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-time_locked_wallet = "899SKikn1WiRBSurKhMZyNCNvYmWXVE6hZFYbFim293g"
+time_locked_wallet = "8H3kyZCtLpV3ugf8hVAYHL5sPuYz92jbGaqLAjz7uzEp"
 [programs.devnet]
 time_locked_wallet = "899SKikn1WiRBSurKhMZyNCNvYmWXVE6hZFYbFim293g"
 [registry]

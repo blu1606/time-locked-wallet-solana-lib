@@ -37,7 +37,34 @@
 ```
 
 ## 🚀 Quick Start
-### 1. Chạy Examples
+
+### 1. Testing
+
+**Automated Tests (Recommended):**
+```bash
+# Chạy tất cả tests tự động (localnet + devnet)
+npm run test
+
+# Hoặc sử dụng PowerShell script
+.\run-tests.ps1
+
+# Test theo loại
+npm run test:unit        # Unit tests
+npm run test:integration # Integration tests  
+npm run test:devnet      # Devnet tests
+npm run test:localnet    # Localnet tests only
+```
+
+**Manual Setup:**
+```bash
+# Setup test environment
+npm run test:setup
+
+# Chạy tests
+npm run test:automated
+```
+
+### 2. Chạy Examples
 
 **Vanilla JS (No setup required):**
 ```bash

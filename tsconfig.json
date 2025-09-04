@@ -3,12 +3,19 @@
     "types": ["mocha", "chai"],
     "typeRoots": ["./node_modules/@types"],
     "lib": ["dom", "es2019"],
-    "module": "ESNext",
+    "module": "commonjs",
     "moduleResolution": "node",
-    "target": "es6",
+    "target": "es2019",
     "jsx": "react-jsx",
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "declaration": false,
+    "outDir": "./dist"
+  },
+  "ts-node": {
+    "esm": false,
+    "experimentalSpecifierResolution": "node"
   }
 }
