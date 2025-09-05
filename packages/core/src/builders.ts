@@ -126,9 +126,12 @@ export class TimeLockBuilders {
             .accounts({
                 timeLockAccount: params.timeLockAccount,
                 initializer: signerKey,
+                mint: params.tokenMint,
                 tokenFromAta: params.tokenFromAta,
                 tokenVault: params.tokenVault,
                 tokenProgram: params.tokenProgramId,
+                associatedTokenProgram: params.associatedTokenProgramId,
+                systemProgram: SystemProgram.programId,
             })
             .instruction();
     }
