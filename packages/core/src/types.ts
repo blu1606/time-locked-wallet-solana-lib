@@ -56,11 +56,9 @@ export interface DepositParams {
  * Parameters for token deposits
  */
 export interface TokenDepositParams extends DepositParams {
-    tokenMint: PublicKey;
     tokenFromAta: PublicKey;
     tokenVault: PublicKey;
     tokenProgramId: PublicKey;
-    associatedTokenProgramId: PublicKey;
 }
 
 /**
