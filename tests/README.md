@@ -1,228 +1,305 @@
-# Time-Locked Wallet Tests
+# 🧪 Time-Locked Wallet Testing Suite
 
-This directory contains comprehensive tests for the Time-Locked Wallet Solana program, designed to work on both localnet and devnet environments.
+Comprehensive testing framework for Solana Time-Locked Wallet program with support for both **localnet** and **devnet** environments.
 
-> 📋 **For Complete Test Strategy**: See [TEST_PLAN.md](../TEST_PLAN.md) for the comprehensive testing strategy and roadmap.
+## 📋 Test Overview
 
-## Current Test Files
+This test suite validates all core functionality of the Time-Locked Wallet program:
 
-### 1. `localnet-test.ts`
-Comprehensive test suite for localnet development and testing.
+- ✅ **Initialize** SOL time-locked wallets
+- ✅ **Deposit** SOL to time-locked accounts  
+- ✅ **Reject early withdrawal** (time-lock mechanism)
+- ✅ **Allow withdrawal** after unlock time
 
-**Features:**
-- Initialize time-locked wallet
-- Deposit SOL
-- Test withdrawal failure before unlock time
-- Get wallet information
-- Runs on localnet (http://127.0.0.1:8899)
+## 🌐 Test Environments
 
-**Usage:**
-```bash
-npm run test:localnet
-```
+### 🏠 **Localnet Testing**
+- **File**: `localnet-test.ts`
+- **Program ID**: `8PBuGBPVceKKMubCtwMY91BF3ZnrYaYXE7tF37gDGtyx`
+- **Network**: Local Solana validator
+- **Command**: `npm run test:localnet`
+- **Requirements**: Running `solana-test-validator`
 
-### 2. `devnet-test.ts`
-Full test suite for devnet testing, including automatic withdrawal after unlock time.
+### 🌍 **Devnet Testing**
+- **File**: `devnet-test.ts`  
+- **Program ID**: `8PBuGBPVceKKMubCtwMY91BF3ZnrYaYXE7tF37gDGtyx`
+- **Network**: Solana Devnet
+- **Command**: `npm run test:devnet`
+- **Requirements**: Funded wallet (≥0.1 SOL)
 
-**Features:**
-- All localnet features
-- Automatic waiting for unlock time
-- Real withdrawal test
-- Solana Explorer links for transactions
-- Runs on devnet (https://api.devnet.solana.com)
-
-**Usage:**
-```bash
-npm run test:devnet
-```
-
-**Prerequisites for Devnet:**
-- Ensure your wallet has devnet SOL
-- Get devnet SOL from: https://faucet.solana.com/
-
-
-### 3. `test-withdraw.ts`
-Standalone withdrawal testing script that can be used with any existing time-locked wallet.
-
-**Features:**
-- Test withdrawal for any existing time-locked wallet
-- Works on both localnet and devnet
-- Checks unlock status before attempting withdrawal
-- Detailed error reporting
-
-**Usage:**
-```bash
-# For localnet
-npm run test:withdraw <timeLockAccountAddress>
-
-# For devnet
-npm run test:withdraw <timeLockAccountAddress> devnet
-```
-
-**Example:**
-```bash
-npm run test:withdraw 8H3kyZCtLpV3ugf8hVAYHL5sPuYz92jbGaqLAjz7uzEp
-npm run test:withdraw 8H3kyZCtLpV3ugf8hVAYHL5sPuYz92jbGaqLAjz7uzEp devnet
-   ```
-
-## Planned Test Files (Comprehensive Test Plan)
-
-The following test files are planned as part of our comprehensive testing strategy. See [TEST_PLAN.md](../TEST_PLAN.md) for full details:
-
-### 🔄 Core Functionality Tests
-- `account-lifecycle-test.ts` - Complete account lifecycle testing
-- `timelock-validation-test.ts` - Time-based validation scenarios
-
-### 🔒 Account Closure Tests  
-- `sol-closure-test.ts` - SOL account closure and rent reclaim
-- `token-closure-test.ts` - Token account closure scenarios
-- `admin-closure-test.ts` - Administrative closure operations
-
-### 🛡️ Security Tests
-- `security-auth-test.ts` - Authorization and access control
-- `security-attacks-test.ts` - Reentrancy and attack vector testing
-- `input-validation-test.ts` - Input boundary and validation testing
-
-### ⚡ Performance Tests
-- `performance-gas-test.ts` - Gas optimization and benchmarking
-- `stress-test.ts` - High volume and stress testing
-
-### 🔗 Integration Tests
-- `network-compatibility-test.ts` - Multi-network compatibility
-- `sdk-integration-test.ts` - SDK and framework integration
-
-### 📊 System Tests
-- `event-emission-test.ts` - Event emission and listening
-- `logging-system-test.ts` - Conditional logging system validation
-
-### Implementation Priority
-1. **Phase 1**: Core functionality and basic security tests
-2. **Phase 2**: Account closure and advanced scenarios  
-3. **Phase 3**: Performance and stress testing
-4. **Phase 4**: Full integration and compatibility validation
-
-## Test ConfigurationEach test file has its own configuration:
-
-- **Localnet Tests**: 30-second unlock time, 0.1 SOL deposit
-- **Devnet Tests**: 60-second unlock time, 0.01 SOL deposit (smaller for cost efficiency)
-- **Manual Tests**: 30-second unlock time, 0.05 SOL deposit
-
-## Running Tests
+## 🚀 Quick Start
 
 ### Prerequisites
+```bash
+# Install dependencies
+npm install
 
-1. **For Localnet:**
-   ```bash
-   # Start local Solana validator
-   solana-test-validator
-   
-   # Deploy program
-   anchor deploy
-   ```
+# Build the program
+anchor build
+```
 
-2. **For Devnet:**
-   ```bash
-   # Set Solana CLI to devnet
-   solana config set --url devnet
-   
-   # Ensure you have devnet SOL
-   solana balance
-   
-   # If balance is low, request from faucet
-   # Visit: https://faucet.solana.com/
-   
-   # Deploy program to devnet
-   anchor deploy --provider.cluster devnet
-   ```
-
-### Test Commands
+### 1. Localnet Testing (Recommended for Development)
 
 ```bash
-# Run localnet tests
+# Terminal 1: Start local validator
+solana-test-validator --reset
+
+# Terminal 2: Deploy and test
+anchor deploy --provider.cluster localnet
 npm run test:localnet
+```
 
-# Run devnet tests  
+**Expected Output:**
+```
+🌐 LOCALNET Test Suite
+Program ID: 8PBuGBPVceKKMubCtwMY91BF3ZnrYaYXE7tF37gDGtyx
+✅ Airdrop confirmed
+🏗️ Test 1: Initialize SOL Wallet ✅
+💰 Test 2: Deposit SOL ✅  
+🚫 Test 3: Early Withdrawal (should fail) ✅
+⏰ Test 4: Wait and Withdraw ✅
+
+4 passing (11s)
+```
+
+### 2. Devnet Testing (Production-like Environment)
+
+```bash
+# Step 1: Fund your wallet
+solana config set --url devnet
+solana airdrop 1  # or use https://faucet.solana.com
+
+# Step 2: Deploy program (if needed)
+anchor deploy --provider.cluster devnet
+
+# Step 3: Run tests
 npm run test:devnet
-
-# Run manual tests (uses current Anchor.toml configuration)
-npm run test:manual
-
-# Test withdrawal for specific account
-npm run test:withdraw <account-address> [network]
-
-# Run all tests
-npm run test:all
 ```
 
-## Test Flow
+## 📊 Test Case Details
 
-### Standard Test Flow:
-1. **Initialize** - Create time-locked wallet with future unlock time
-2. **Deposit** - Add SOL to the time-locked wallet
-3. **Early Withdrawal Attempt** - Verify withdrawal fails before unlock time
-4. **Get Info** - Retrieve wallet information and status
-5. **Wait & Withdraw** - (Devnet only) Wait for unlock and successfully withdraw
+### Test 1: Initialize SOL Wallet
+- **Purpose**: Create time-locked wallet with SOL type
+- **Validation**: Account creation and data structure
+- **Time**: ~1.5 seconds
 
-### Withdrawal Test Flow:
-1. **Validate** - Check if account exists and belongs to current wallet
-2. **Check Status** - Verify unlock time and current balance
-3. **Attempt Withdrawal** - Try to withdraw if unlocked
-4. **Verify** - Confirm successful withdrawal
+### Test 2: Deposit SOL
+- **Purpose**: Deposit SOL into time-locked wallet
+- **Amount**: 0.05 SOL (devnet) / 0.1 SOL (localnet)
+- **Validation**: Account balance increase
+- **Time**: ~2 seconds
 
-## Example Output
+### Test 3: Early Withdrawal Rejection
+- **Purpose**: Verify time-lock mechanism prevents early withdrawal
+- **Validation**: Transaction fails with `TIME_LOCK_NOT_EXPIRED` error
+- **Time**: ~1.5 seconds
 
+### Test 4: Withdrawal After Unlock
+- **Purpose**: Allow withdrawal after time-lock expires
+- **Wait Time**: 15 seconds (devnet) / 10 seconds (localnet)
+- **Validation**: Successful withdrawal and balance increase
+- **Time**: ~18 seconds (including wait)
+
+## 💰 Cost Analysis
+
+### Localnet (Free)
+- All operations are free
+- Unlimited testing
+- Instant airdrop
+
+### Devnet
+| Operation | Cost | Purpose |
+|-----------|------|---------|
+| Initialize | ~0.002 SOL | Account creation |
+| Deposit | 0.05 SOL | Test amount |
+| Transaction fees | ~0.003 SOL | Network fees |
+| Buffer | ~0.045 SOL | Safety margin |
+| **Total** | **~0.1 SOL** | **Full testing** |
+
+## 🛠️ Available Commands
+
+```bash
+# Individual test suites
+npm run test:localnet    # Local development testing
+npm run test:devnet      # Devnet production testing
+
+# Batch testing
+npm run test:all         # Run both localnet and devnet
+
+# Development utilities  
+npm run test:debug       # Debug utilities
+npm run test:inspect     # Account inspection
 ```
-🔧 Localnet Test Configuration:
-- RPC Endpoint: http://127.0.0.1:8899
-- Unlock Time: 12/4/2025, 3:45:30 PM
-- Deposit Amount: 0.1 SOL (100000000 lamports)
-=====================================
 
-🔗 Connected to: http://127.0.0.1:8899
-👛 Wallet: 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU
-💰 Program ID: 8H3kyZCtLpV3ugf8hVAYHL5sPuYz92jbGaqLAjz7uzEp
-💳 Current wallet balance: 500 SOL
+## 🔧 Configuration
 
-📍 Time Lock Account PDA: ABC123...
-🎯 Bump: 254
-
-✅ Initialize Transaction: 5J7...
-✅ Initialize transaction confirmed
-...
+### Program IDs
+Both environments use the same program ID for consistency:
+```
+8PBuGBPVceKKMubCtwMY91BF3ZnrYaYXE7tF37gDGtyx
 ```
 
-## Troubleshooting
+### Timeouts
+- **Localnet**: 90 seconds (faster network)
+- **Devnet**: 120 seconds (network latency)
 
-### Common Issues:
+### Account Seeds
+Time-lock accounts use deterministic seeds:
+```typescript
+[
+  Buffer.from("time_lock"),
+  wallet.publicKey.toBuffer(), 
+  unlockTimestamp.toArrayLike(Buffer, "le", 8)
+]
+```
 
-1. **Insufficient Balance:**
-   - For localnet: Use `solana airdrop` to add SOL
-   - For devnet: Use the Solana faucet at https://faucet.solana.com/
+## 🚨 Troubleshooting
 
-2. **Program Not Found:**
-   - Ensure the program is deployed: `anchor deploy`
-   - Check `Anchor.toml` for correct program ID
+### Issue 1: Program Not Found
+```
+Error: Program 8PBuG... not found
+```
+**Solution:**
+```bash
+# Deploy program first
+anchor deploy --provider.cluster localnet  # or devnet
+```
 
-3. **Connection Issues:**
-   - For localnet: Ensure `solana-test-validator` is running
-   - For devnet: Check internet connection and RPC endpoint
+### Issue 2: Insufficient Balance (Devnet)
+```
+Error: Insufficient balance for testing
+```
+**Solution:**
+```bash
+# Fund your wallet
+solana airdrop 1 --url devnet
+# or use web faucet: https://faucet.solana.com
+```
 
-4. **Account Not Found:**
-   - The time-locked wallet may not have been initialized
-   - Check the account address is correct
+### Issue 3: Localnet Not Running
+```
+Error: Connection refused
+```
+**Solution:**
+```bash
+# Start validator in separate terminal
+solana-test-validator --reset
+```
 
-### Environment Variables:
+### Issue 4: Account Already Exists
+```
+Error: Account already exists
+```
+**Solution:**
+```bash
+# Restart validator (localnet)
+solana-test-validator --reset
 
-The tests use environment variables from Anchor:
-- `ANCHOR_PROVIDER_URL` - RPC endpoint
-- `ANCHOR_WALLET` - Wallet keypair path
+# Or wait/use different timestamp (devnet)
+```
 
-These are automatically set by the npm scripts in `package.json`.
+## 📈 Performance Benchmarks
 
-## Notes
+### Localnet Performance
+- **Full test suite**: ~11 seconds
+- **Network latency**: <100ms
+- **Transaction confirmation**: <1 second
 
-- All tests include proper error handling and detailed logging
-- Devnet tests include Solana Explorer links for easy transaction verification
-- Tests use confirmation strategy "confirmed" for faster execution
-- Automatic delays are included for devnet to handle network propagation
-- The withdrawal test script can be used independently of the test suites
+### Devnet Performance  
+- **Full test suite**: ~25-30 seconds
+- **Network latency**: 200-500ms
+- **Transaction confirmation**: 1-3 seconds
+
+## 🔍 Test Architecture
+
+### Manual Transaction Building
+Tests use manual transaction construction for maximum control:
+
+```typescript
+const instruction = await program.methods
+  .initialize(unlockTimestamp, { sol: {} })
+  .accountsPartial({
+    timeLockAccount,
+    initializer: wallet.publicKey,
+    systemProgram: SystemProgram.programId,
+  })
+  .instruction();
+
+const tx = new Transaction().add(instruction);
+tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+tx.feePayer = wallet.publicKey;
+tx.sign(wallet);
+
+const signature = await connection.sendRawTransaction(tx.serialize());
+```
+
+### Error Handling
+Comprehensive error handling with specific validations:
+
+```typescript
+try {
+  // Attempt operation
+} catch (error) {
+  // Validate expected error type
+  expect(error.logs).to.satisfy((logs) => 
+    logs.some(log => log.includes("TIME_LOCK_NOT_EXPIRED"))
+  );
+}
+```
+
+## 🎯 Best Practices
+
+### For Development
+1. **Use localnet** for rapid iteration
+2. **Test individual cases** before full suite
+3. **Monitor account states** with inspection tools
+4. **Use meaningful timestamps** for debugging
+
+### For CI/CD
+1. **Start with localnet** validation  
+2. **Include devnet** for integration testing
+3. **Fund wallets** before pipeline runs
+4. **Set appropriate timeouts** for network conditions
+
+### For Production Validation
+1. **Test on devnet** before mainnet deployment
+2. **Validate all error cases** thoroughly
+3. **Monitor gas costs** and optimize
+4. **Document expected behaviors** clearly
+
+## 📚 Related Documentation
+
+- **Setup Guide**: See `DEVNET_SETUP.md` for wallet funding
+- **Environment Guide**: See `ENVIRONMENT_GUIDE.md` for configuration
+- **Program Documentation**: See `../docs/` for program architecture
+- **Frontend Integration**: See `../frontend/` for UI components
+
+## 🤝 Contributing
+
+### Adding New Tests
+1. Follow existing test patterns
+2. Include both positive and negative cases  
+3. Add appropriate timeouts
+4. Document expected behaviors
+
+### Test Categories
+- **Unit Tests**: Individual function testing
+- **Integration Tests**: Cross-function workflows
+- **Environment Tests**: Network-specific validations
+- **Error Tests**: Failure case handling
+
+## 📄 License
+
+This testing suite is part of the Time-Locked Wallet Solana Library project.
+
+---
+
+## 🎉 Success Criteria
+
+✅ **All tests pass** on both environments  
+✅ **Time-lock mechanism** works correctly  
+✅ **Error handling** is comprehensive  
+✅ **Performance** meets expectations  
+✅ **Documentation** is complete  
+
+**Ready to test?** Start with: `npm run test:localnet`

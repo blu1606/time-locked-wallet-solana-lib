@@ -2,10 +2,10 @@
   "compilerOptions": {
     "types": ["mocha", "chai"],
     "typeRoots": ["./node_modules/@types"],
-    "lib": ["dom", "es2019"],
-    "module": "commonjs",
+    "lib": ["dom", "es2022"],
+    "module": "ES2022",
     "moduleResolution": "node",
-    "target": "es2019",
+    "target": "ES2022",
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -15,7 +15,7 @@
     "outDir": "./dist"
   },
   "ts-node": {
-    "esm": false,
+    "esm": true,
     "experimentalSpecifierResolution": "node"
   }
 }

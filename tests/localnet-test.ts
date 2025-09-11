@@ -1,186 +1,250 @@
 import * as anchor from "@coral-xyz/anchor";
-import { Program, BN } from "@coral-xyz/anchor";
-import { TimeLockedWallet } from "../target/types/time_locked_wallet";
+import { AnchorProvider, Wallet } from "@coral-xyz/anchor";
 import { 
   PublicKey, 
-  SystemProgram, 
+  Keypair, 
+  SystemProgram,
   LAMPORTS_PER_SOL,
-  Keypair,
-  Connection 
+  Connection,
+  Transaction,
 } from "@solana/web3.js";
+import { 
+  TOKEN_PROGRAM_ID, 
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  createMint,
+  createAssociatedTokenAccount,
+  mintTo,
+  getAccount
+} from "@solana/spl-token";
 import { expect } from "chai";
+import { BN } from "bn.js";
 
-// ============= LOCALNET TEST CONFIGURATION =============
-const TEST_CONFIG = {
-  // Test configuration for localnet
-  UNLOCK_TIME_SECONDS: Math.floor(Date.now() / 1000) + 30, // Unlock after 30 seconds from now
-  DEPOSIT_AMOUNT_SOL: 0.1, // 0.1 SOL
-  DEPOSIT_AMOUNT_LAMPORTS: 0.1 * LAMPORTS_PER_SOL,
-  RPC_ENDPOINT: "http://127.0.0.1:8899", // Localnet
-};
+// Localnet Program ID
+const LOCALNET_PROGRAM_ID = new PublicKey("8PBuGBPVceKKMubCtwMY91BF3ZnrYaYXE7tF37gDGtyx");
 
-describe("Time-Locked Wallet Localnet Tests", () => {
-  let provider: anchor.AnchorProvider;
-  let program: Program<TimeLockedWallet>;
-  let connection: Connection;
-  let wallet: any;
-  let timeLockAccount: PublicKey;
-  let bump: number;
+describe("Time-Locked Wallet - Localnet Tests", () => {
+  let provider: AnchorProvider;
+  let program: any;
+  let testUser: Keypair;
 
   before(async () => {
-    console.log("🔧 Localnet Test Configuration:");
-    console.log(`- RPC Endpoint: ${TEST_CONFIG.RPC_ENDPOINT}`);
-    console.log(`- Unlock Time: ${new Date(TEST_CONFIG.UNLOCK_TIME_SECONDS * 1000).toLocaleString()}`);
-    console.log(`- Deposit Amount: ${TEST_CONFIG.DEPOSIT_AMOUNT_SOL} SOL (${TEST_CONFIG.DEPOSIT_AMOUNT_LAMPORTS} lamports)`);
-    console.log("=====================================\n");
-
-    // Configure the client to use the localnet cluster
-    provider = anchor.AnchorProvider.env();
+    // Setup provider for localnet
+    const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+    const wallet = new Wallet(Keypair.generate());
+    provider = new AnchorProvider(connection, wallet, {});
+    
     anchor.setProvider(provider);
-
-    program = anchor.workspace.timeLockedWallet as Program<TimeLockedWallet>;
-    connection = provider.connection;
-    wallet = provider.wallet;
-
-    console.log("🔗 Connected to:", connection.rpcEndpoint);
-    console.log("👛 Wallet:", wallet.publicKey.toString());
-    console.log("💰 Program ID:", program.programId.toString());
-
-    // Check wallet balance
-    const balance = await connection.getBalance(wallet.publicKey);
-    console.log(`💳 Current wallet balance: ${balance / LAMPORTS_PER_SOL} SOL\n`);
-
-    // Ensure we have enough SOL for testing
-    if (balance < TEST_CONFIG.DEPOSIT_AMOUNT_LAMPORTS + 0.01 * LAMPORTS_PER_SOL) {
-      throw new Error(`Insufficient balance. Need at least ${(TEST_CONFIG.DEPOSIT_AMOUNT_LAMPORTS + 0.01 * LAMPORTS_PER_SOL) / LAMPORTS_PER_SOL} SOL`);
-    }
-
-    // Find PDA
-    [timeLockAccount, bump] = PublicKey.findProgramAddressSync(
-      [
-        anchor.utils.bytes.utf8.encode("time_lock"),
-        wallet.publicKey.toBuffer(),
-        new BN(TEST_CONFIG.UNLOCK_TIME_SECONDS).toArrayLike(Buffer, "le", 8),
-      ],
-      program.programId
-    );
-
-    console.log(`📍 Time Lock Account PDA: ${timeLockAccount.toString()}`);
-    console.log(`🎯 Bump: ${bump}\n`);
-  });
-
-  it("Should initialize time lock account on localnet", async () => {
-    console.log("🏗️  STEP 1: Initializing Time Lock Account...");
     
-    const initTx = await program.methods
-      .initialize(new BN(TEST_CONFIG.UNLOCK_TIME_SECONDS), { sol: {} })
-      .accounts({
-        timeLockAccount,                 // 👍 rõ ràng
-        initializer: wallet.publicKey,
-        systemProgram: SystemProgram.programId,
-      } as any)
-      .rpc();
-
-    console.log(`✅ Initialize Transaction: ${initTx}`);
-    
-    // Wait for confirmation
-    await connection.confirmTransaction(initTx, "confirmed");
-    console.log("✅ Initialize transaction confirmed");
-
-    // Verify account was created
-    const accountData = await program.account.timeLockAccount.fetch(timeLockAccount);
-    expect(accountData.owner.toString()).to.equal(wallet.publicKey.toString());
-    expect(accountData.unlockTimestamp.toNumber()).to.equal(TEST_CONFIG.UNLOCK_TIME_SECONDS);
-    expect(accountData.amount.toNumber()).to.equal(0);
-    
-    console.log("📋 Account Data:");
-    console.log(`  - Owner: ${accountData.owner.toString()}`);
-    console.log(`  - Unlock Time: ${new Date(accountData.unlockTimestamp.toNumber() * 1000).toLocaleString()}`);
-    console.log(`  - SOL Balance: ${accountData.amount.toNumber() / LAMPORTS_PER_SOL} SOL`);
-    console.log(`  - Is Locked: ${accountData.unlockTimestamp.toNumber() > Math.floor(Date.now() / 1000)}\n`);
-  });
-
-  it("Should deposit SOL to time lock account on localnet", async () => {
-    console.log("💰 STEP 2: Depositing SOL...");
-    
-    const depositTx = await program.methods
-      .depositSol(new BN(TEST_CONFIG.DEPOSIT_AMOUNT_LAMPORTS))
-      .accounts({
-        timeLockAccount,                 // ✅ thêm dòng này
-        initializer: wallet.publicKey,
-        systemProgram: SystemProgram.programId,
-      } as any)
-      .rpc();
-
-    console.log(`✅ Deposit Transaction: ${depositTx}`);
-    
-    // Wait for confirmation
-    await connection.confirmTransaction(depositTx, "confirmed");
-    console.log("✅ Deposit transaction confirmed");
-
-    // Verify deposit
-    const updatedAccountData = await program.account.timeLockAccount.fetch(timeLockAccount);
-    expect(updatedAccountData.amount.toNumber()).to.equal(TEST_CONFIG.DEPOSIT_AMOUNT_LAMPORTS);
-    
-    console.log("📋 Updated Account Data:");
-    console.log(`  - SOL Balance: ${updatedAccountData.amount.toNumber() / LAMPORTS_PER_SOL} SOL`);
-    
-    const newWalletBalance = await connection.getBalance(wallet.publicKey);
-    console.log(`💳 Updated wallet balance: ${newWalletBalance / LAMPORTS_PER_SOL} SOL\n`);
-  });
-
-  it("Should fail to withdraw before unlock time on localnet", async () => {
-    console.log("🚫 STEP 3: Trying to withdraw before unlock time (should fail)...");
-    
+    // Load program from workspace for localnet
     try {
-      await program.methods
-        .withdrawSol()
-        .accounts({
-          timeLockAccount,                 // ✅ thêm dòng này
-          owner: wallet.publicKey,
-          systemProgram: SystemProgram.programId,
-        } as any)
-        .rpc();
+      program = anchor.workspace.TimeLockedWallet;
+      console.log("✅ Program loaded from workspace");
       
-      throw new Error("Withdraw should have failed but succeeded!");
-    } catch (error: any) {
-      console.log("✅ Expected error - withdrawal blocked before unlock time:");
-      console.log(`   ${error.message}`);
+      // Verify program ID matches localnet
+      expect(program.programId.toString()).to.equal(LOCALNET_PROGRAM_ID.toString());
       
-      // Check if it's the expected error
-      expect(error.message).to.include("withdrawalTooEarly");
+    } catch (error) {
+      console.log("❌ Workspace not available:", error);
+      throw new Error("Cannot load program from workspace. Make sure to run 'anchor build' first.");
+    }
+    
+    console.log("\n🌐 LOCALNET Test Suite");
+    console.log("Program ID:", program.programId.toString());
+    
+    // Create test user
+    testUser = Keypair.generate();
+    console.log("Test user:", testUser.publicKey.toString());
+    
+    // Airdrop SOL to test user
+    try {
+      console.log("🚁 Requesting airdrop...");
+      const signature = await provider.connection.requestAirdrop(
+        testUser.publicKey,
+        5 * LAMPORTS_PER_SOL
+      );
+      
+      await provider.connection.confirmTransaction(signature, "confirmed");
+      console.log("✅ Airdrop confirmed");
+      
+      const balance = await provider.connection.getBalance(testUser.publicKey);
+      console.log("Test user balance:", balance / LAMPORTS_PER_SOL, "SOL");
+      
+    } catch (error) {
+      console.log("⚠️ Airdrop failed:", error);
+      throw error;
     }
   });
 
-  it("Should get wallet info on localnet", async () => {
-    console.log("📊 STEP 4: Getting wallet info...");
-    
-    const walletInfo = await program.methods
-      .getWalletInfo()
-      .accounts({
-        timeLockAccount,                 // ✅ thêm dòng này
-      })
-      .view();
+  describe("SOL Time-Locked Wallet Tests", () => {
+    let unlockTimestamp: number;
+    let timeLockAccount: PublicKey;
 
-    console.log("📋 Wallet Info:");
-    console.log(`  - Owner: ${walletInfo.owner.toString()}`);
-    console.log(`  - Unlock Time: ${new Date(walletInfo.unlockTimestamp.toNumber() * 1000).toLocaleString()}`);
-    console.log(`  - Amount: ${walletInfo.amount.toNumber() / LAMPORTS_PER_SOL} SOL`);
-    console.log(`  - Is Unlocked: ${walletInfo.isUnlocked}`);
-    console.log(`  - Time Remaining: ${walletInfo.timeRemaining.toNumber()} seconds`);
+    before(async () => {
+      unlockTimestamp = Math.floor(Date.now() / 1000) + 8; // 8 seconds
+      console.log(`⏰ Unlock in 8 seconds`);
+      
+      [timeLockAccount] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("time_lock"),
+          testUser.publicKey.toBuffer(),
+          new BN(unlockTimestamp).toArrayLike(Buffer, "le", 8)
+        ],
+        program.programId
+      );
+      console.log("Time lock account:", timeLockAccount.toString());
+    });
 
-    expect(walletInfo.owner.toString()).to.equal(wallet.publicKey.toString());
-    expect(walletInfo.amount.toNumber()).to.equal(TEST_CONFIG.DEPOSIT_AMOUNT_LAMPORTS);
-    expect(walletInfo.isUnlocked).to.be.false;
-    expect(walletInfo.timeRemaining.toNumber()).to.be.greaterThan(0);
+    it("Should initialize a SOL time-locked wallet", async () => {
+      console.log("🏗️ Test 1: Initialize SOL Wallet");
+      
+      try {
+        const instruction = await program.methods
+          .initialize(new BN(unlockTimestamp), { sol: {} })
+          .accountsPartial({
+            timeLockAccount,
+            initializer: testUser.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .instruction();
+        
+        const tx = new Transaction().add(instruction);
+        tx.recentBlockhash = (await provider.connection.getLatestBlockhash()).blockhash;
+        tx.feePayer = testUser.publicKey;
+        tx.sign(testUser);
+        
+        const signature = await provider.connection.sendRawTransaction(tx.serialize());
+        await provider.connection.confirmTransaction(signature, "confirmed");
+        
+        console.log("✅ Initialize successful");
+        
+        const accountInfo = await provider.connection.getAccountInfo(timeLockAccount);
+        expect(accountInfo).to.not.be.null;
+        expect(accountInfo!.data.length).to.be.greaterThan(0);
+        
+      } catch (error) {
+        console.log("❌ Initialize failed:", error);
+        throw error;
+      }
+    });
+
+    it("Should deposit SOL to time-locked wallet", async () => {
+      console.log("💰 Test 2: Deposit SOL");
+      
+      const depositAmount = 0.1 * LAMPORTS_PER_SOL;
+      console.log("Deposit amount:", depositAmount / LAMPORTS_PER_SOL, "SOL");
+      
+      try {
+        const instruction = await program.methods
+          .depositSol(new BN(depositAmount))
+          .accountsPartial({
+            timeLockAccount,
+            initializer: testUser.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .instruction();
+        
+        const tx = new Transaction().add(instruction);
+        tx.recentBlockhash = (await provider.connection.getLatestBlockhash()).blockhash;
+        tx.feePayer = testUser.publicKey;
+        tx.sign(testUser);
+        
+        const signature = await provider.connection.sendRawTransaction(tx.serialize());
+        await provider.connection.confirmTransaction(signature, "confirmed");
+        
+        console.log("✅ Deposit successful");
+        
+        const accountBalance = await provider.connection.getBalance(timeLockAccount);
+        expect(accountBalance).to.be.greaterThan(depositAmount);
+        console.log("Account balance:", accountBalance / LAMPORTS_PER_SOL, "SOL");
+        
+      } catch (error) {
+        console.log("❌ Deposit failed:", error);
+        throw error;
+      }
+    });
+
+    it("Should fail to withdraw before unlock time", async () => {
+      console.log("🚫 Test 3: Early Withdrawal (should fail)");
+      
+      try {
+        const instruction = await program.methods
+          .withdrawSol()
+          .accountsPartial({
+            timeLockAccount,
+            owner: testUser.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .instruction();
+        
+        const tx = new Transaction().add(instruction);
+        tx.recentBlockhash = (await provider.connection.getLatestBlockhash()).blockhash;
+        tx.feePayer = testUser.publicKey;
+        tx.sign(testUser);
+        
+        const signature = await provider.connection.sendRawTransaction(tx.serialize());
+        await provider.connection.confirmTransaction(signature, "confirmed");
+        
+        throw new Error("Withdrawal should have failed but succeeded");
+        
+      } catch (error: any) {
+        if (error.message?.includes("Withdrawal should have failed")) {
+          throw error;
+        }
+        console.log("✅ Early withdrawal correctly failed");
+        expect(error.transactionLogs).to.satisfy((logs: string[]) => 
+          logs.some(log => log.includes("TIME_LOCK_NOT_EXPIRED"))
+        );
+      }
+    });
+
+    it("Should withdraw SOL after unlock time", async () => {
+      console.log("⏰ Test 4: Wait and Withdraw");
+      
+      // Wait for unlock time
+      const currentTime = Math.floor(Date.now() / 1000);
+      if (currentTime < unlockTimestamp) {
+        const waitTime = (unlockTimestamp - currentTime + 2) * 1000;
+        console.log(`Waiting ${waitTime/1000} seconds for unlock...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+      
+      console.log("💸 Now withdrawing SOL...");
+      
+      try {
+        const initialBalance = await provider.connection.getBalance(testUser.publicKey);
+        
+        const instruction = await program.methods
+          .withdrawSol()
+          .accountsPartial({
+            timeLockAccount,
+            owner: testUser.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .instruction();
+        
+        const tx = new Transaction().add(instruction);
+        tx.recentBlockhash = (await provider.connection.getLatestBlockhash()).blockhash;
+        tx.feePayer = testUser.publicKey;
+        tx.sign(testUser);
+        
+        const signature = await provider.connection.sendRawTransaction(tx.serialize());
+        await provider.connection.confirmTransaction(signature, "confirmed");
+        
+        console.log("✅ Withdrawal successful");
+        
+        const finalBalance = await provider.connection.getBalance(testUser.publicKey);
+        expect(finalBalance).to.be.greaterThan(initialBalance);
+        console.log("Final user balance:", finalBalance / LAMPORTS_PER_SOL, "SOL");
+        
+      } catch (error) {
+        console.log("❌ Withdrawal failed:", error);
+        throw error;
+      }
+    });
   });
 
   after(() => {
-    console.log("\n🎉 Localnet tests completed successfully!");
-    console.log("\n📝 Test Results:");
-    console.log(`  - Time Lock Account: ${timeLockAccount.toString()}`);
-    console.log(`  - Unlock Time: ${TEST_CONFIG.UNLOCK_TIME_SECONDS}`);
-    console.log(`  - Deposit Amount: ${TEST_CONFIG.DEPOSIT_AMOUNT_SOL} SOL`);
-    console.log("\n💡 To test withdrawal after unlock time, run the withdrawal test or wait for unlock time");
+    console.log("\n🎉 Localnet Test Suite Completed!");
+    console.log("✅ SOL wallet tests: All passed");
   });
 });

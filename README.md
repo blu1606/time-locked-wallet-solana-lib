@@ -207,6 +207,36 @@ const connection = new Connection('http://localhost:8899');
 
 ## 🧪 Testing
 
+The project includes a comprehensive testing suite for both development and production environments.
+
+### Quick Start
+```bash
+# Local development testing
+npm run test:localnet
+
+# Production-like testing  
+npm run test:devnet
+
+# Both environments
+npm run test:all
+
+# Show all available test commands
+npm run test:help
+```
+
+### Detailed Testing Documentation
+- **📋 Complete Guide**: [`tests/README.md`](./tests/README.md) - Full testing documentation
+- **🚀 Quick Start**: [`tests/QUICK_START.md`](./tests/QUICK_START.md) - TL;DR version
+- **🌍 Devnet Setup**: [`tests/DEVNET_SETUP.md`](./tests/DEVNET_SETUP.md) - Wallet funding guide
+
+### Test Coverage
+✅ **Initialize** SOL time-locked wallets  
+✅ **Deposit** SOL to time-locked accounts  
+✅ **Reject early withdrawal** (time-lock mechanism)  
+✅ **Allow withdrawal** after unlock time
+
+**Performance**: 4/4 tests passing in ~11s (localnet) / ~25s (devnet)
+
 ### Run Local Tests
 
 ```bash

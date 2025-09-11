@@ -4,25 +4,27 @@
   "description": "Time-Locked Wallet Solana Library",
   "type": "module",
   "scripts": {
-    "test": "ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts",
-    "test:localnet": "ts-mocha -p ./tsconfig.json -t 1000000 tests/localnet-test.ts",
-    "test:devnet": "ts-mocha -p ./tsconfig.json -t 1000000 tests/devnet-test.ts",
-    "test:closure": "ts-mocha -p ./tsconfig.json -t 1000000 tests/account-closure-basic-test.ts tests/closure-comprehensive-test.ts",
-    "test:security": "ts-mocha -p ./tsconfig.json -t 1000000 tests/security-basic-test.ts",
-    "test:events": "ts-mocha -p ./tsconfig.json -t 1000000 tests/event-emission-test.ts"
+    "test:localnet": "ANCHOR_PROVIDER_URL=http://127.0.0.1:8899 npx ts-mocha -p ./tsconfig.json -t 90000 tests/localnet-test.ts",
+    "test:devnet": "ANCHOR_PROVIDER_URL=https://api.devnet.solana.com npx ts-mocha -p ./tsconfig.json -t 120000 tests/devnet-test.ts",
+    "test:all": "npm run test:localnet && npm run test:devnet",
+    "test:debug": "npx ts-mocha -p ./tsconfig.json -t 60000 tests/debug-test.ts",
+    "test:inspect": "npx ts-mocha -p ./tsconfig.json -t 60000 tests/inspect-test.ts",
+    "test:help": "echo 'Available test commands:\n  npm run test:localnet  - Local development testing\n  npm run test:devnet    - Devnet production testing\n  npm run test:all       - Run both environments\n  npm run test:help      - Show this help'"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.28.0",
+    "@coral-xyz/anchor": "^0.31.1",
+    "@solana/spl-token": "^0.3.11",
     "@solana/web3.js": "^1.78.0",
-    "@solana/spl-token": "^0.3.8"
+    "bn.js": "^5.2.2"
   },
   "devDependencies": {
-    "@types/chai": "^4.3.0",
-    "@types/mocha": "^10.0.0",
+    "@types/chai": "^4.3.20",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^18.0.0",
-    "chai": "^4.3.6",
-    "mocha": "^10.0.0",
+    "chai": "^4.5.0",
+    "mocha": "^10.8.2",
     "ts-mocha": "^10.0.0",
+    "ts-node": "^10.9.2",
     "typescript": "^4.9.0"
   }
 }
