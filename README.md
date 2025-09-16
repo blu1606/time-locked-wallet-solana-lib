@@ -1,9 +1,14 @@
-# Time-Locke# Time-Locked Wallet Solana Library
+# Time-Locked Wallet Solana Library
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](#)
 [![License](https://img.shields.io/badge/license-MIT-blue)](#)
 [![Solana](https://img.shields.io/badge/solana-v1.78.0-purple)](#)
 [![Anchor](https://img.shields.io/badge/anchor-v0.28.0-orange)](#)
+[![Superteam Earn](https://img.shields.io/badge/Superteam%20Earn-Honorable%20Mention-gold)](#)
+
+## 🏆 Achievement
+
+**🥉 Honorable Mention** - [Superteam Earn](https://earn.superteam.fun/) - Recognized for innovative time-locked wallet solution on Solana blockchain.
 
 A comprehensive Solana library for creating time-locked wallets that allows users to lock SOL or SPL tokens with a predefined unlock timestamp. Perfect for vesting schedules, savings plans, or any time-based asset management.
 
