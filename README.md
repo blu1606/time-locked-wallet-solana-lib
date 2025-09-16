@@ -12,6 +12,8 @@
 
 A comprehensive Solana library for creating time-locked wallets that allows users to lock SOL or SPL tokens with a predefined unlock timestamp. Perfect for vesting schedules, savings plans, or any time-based asset management.
 
+![alt text](image.png)
+
 ## 🌟 Features
 
 - **🔒 Time-Locked Wallets**: Lock SOL or SPL tokens until a specific timestamp
